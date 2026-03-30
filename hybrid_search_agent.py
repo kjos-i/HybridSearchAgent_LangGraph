@@ -2,54 +2,63 @@
 Hybrid Search Agent using FTS + Vector embeddings.
 
 This module defines a LangGraph-enabled research assistant agent that:
-    - Uses a HybridRetriever combining keyword (FTS) and semantic vector search.
-    - Provides a Pydantic-based schema for input arguments, including optional metadata filters.
-    - Exposes a `hybrid_search_tool` for LangGraph pipelines.
-    - Runs an interactive async agent loop with streaming responses.
+    - Uses a HybridRetriever combining FTS and semantic vector search.
+    - Provides a Pydantic-based schema for input arguments, including metadata filters.
+    - Exposes a `hybrid_search_tool` for LangGraph agent.
+    - Runs an interactive async agent loop with streaming responses and tool tracking.
 """
 
 # Standard library
 import asyncio
 from typing import Literal
+import sys
+import time
 
 # Third-party
 from dotenv import load_dotenv
 from langchain.agents import create_agent
-from langchain_community.vectorstores import Chroma
+from langchain_chroma import Chroma
+from chromadb.errors import ChromaError
+import sqlite3
 from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.checkpoint.memory import InMemorySaver
 from pydantic import Field
 
-# Local application / project imports
+# Local imports
 from fts_search import FTSStore
 from hybrid_search import HybridRetriever
 from pydantic_models import ChunkMetadata
-from utils import debug_print, print_agent_graph
+from utils import debug_print, print_agent_graph, setup_logger
+from config import DEBUG, UPDATES, DRAW, DEBUG_PRINT, PRINT
 
-# Load environment variables, configurations
-from config import DEBUG, EVENTS, DRAW
+# Load env from specific path
 load_dotenv("C:/Users/kjosi/dotenv/.env")
 
 
-# --- Initialize Vector and FTS stores ---
+# Initialize logger
+logger = setup_logger("hybrid_search_agent")
+
+# --- Database and Store Initialization ---
+# Initialize Vector Store (Semantic)
 vector_store = Chroma(
     collection_name="document_collection_1", 
     embedding_function=OpenAIEmbeddings(),
     persist_directory="./chroma_db"
 )
 
+# Initialize Full-Text Search (Keyword)
 fts_store = FTSStore()
 
-# --- Hybrid search configuration weights ---
+# --- Search Strategy Hyperparameters ---
 FTS_WEIGHT = 0.3
 VECTOR_SIMILARITY_WEIGHT = 0.7
 VECTOR_MMR_WEIGHT = 0.7
 VECTOR_MAX_SCORE = 1.0
 FTS_MULTI_WEIGHTS = {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
 
-# Instantiate the hybrid retriever
+# Global retriever instance used by the tool
 retriever = HybridRetriever(
     fts_store=fts_store,
     vector_store=vector_store,
@@ -63,23 +72,25 @@ retriever = HybridRetriever(
 # --- Input schema for the hybrid search tool ---
 class HybridSearchArgs(ChunkMetadata):
     """
-    Pydantic schema for hybrid search tool inputs.
-
-    Inherits from ChunkMetadata to allow optional metadata filters
-    such as source, category, chunk_id, start_char, and end_char.
+    Validation schema for hybrid search tool inputs.
+    
+    Attributes:
+        query: The user's search string.
+        k: Maximum number of documents to retrieve.
+        vector_search_method: Logic for vector ranking ('similarity' or 'mmr').
+        use_phrase: Whether to force exact phrase matching in FTS.
+        use_prefix: Whether to allow wildcard/prefix matching in FTS.
+        multi_fts: Whether to run all FTS modes and fuse scores.
     """
 
     query: str = Field(..., description="Search query.")
     k: int = Field(5, description="Number of results to return.") 
-    
     vector_search_method: Literal["similarity", "mmr"] = Field(
         "similarity",
         description="Use 'similarity' for relevance or 'mmr' for diversity."
     )
-
     use_phrase: bool = Field(False, description="Enable exact phrase matching.")
     use_prefix: bool = Field(False, description="Enable prefix keyword matching (e.g., 'bio*').")
-
     multi_fts: bool = Field(False, description="Use multi-mode FTS search (keyword + phrase + prefix).")
 
 
@@ -87,65 +98,72 @@ class HybridSearchArgs(ChunkMetadata):
 @tool(args_schema=HybridSearchArgs)
 def hybrid_search_tool(**kwargs):
     """
-    Perform a hybrid search combining FTS + Chroma vector database.
-
-    Features:
-        - Multi-mode FTS (keyword, phrase, prefix) with weighted score fusion.
-        - Vector search: similarity or MMR-based retrieval.
-        - Optional metadata filters inherited from ChunkMetadata.
-        - Returns structured search results as a list of dictionaries.
+    Search tool that fuses FTS keyword results with Chroma vector results.
+    
+    Logic:
+        1. Validates flags (disables prefix if phrase is active).
+        2. Filters out None values from metadata.
+        3. Calls HybridRetriever to perform score-fused retrieval.
     """
+    try:
+        if DEBUG_PRINT: debug_print("hybrid_search_tool called with kwargs:", kwargs)
 
-    if DEBUG:
-        debug_print("hybrid_search_tool called with kwargs:", kwargs)
+        # Extract required query and optional arguments
+        query = kwargs.pop("query")
+        k = kwargs.pop("k", 5)
+        vector_search_method = kwargs.pop("vector_search_method", "similarity")
+        use_phrase = kwargs.pop("use_phrase", False)
+        use_prefix = kwargs.pop("use_prefix", False)
+        multi_fts = kwargs.pop("multi_fts", False)
 
-    # Extract required query and optional arguments
-    query = kwargs.pop("query")
-    k = kwargs.pop("k", 5)
-    vector_search_method = kwargs.pop("vector_search_method", "similarity")
-    use_phrase = kwargs.pop("use_phrase", False)
-    use_prefix = kwargs.pop("use_prefix", False)
-    multi_fts = kwargs.pop("multi_fts", False)
+        # Mutually exclusive search flags guardrail
+        if use_phrase and use_prefix:
+            if DEBUG_PRINT: debug_print("Both use_phrase and use_prefix are True. Disabling use_prefix.")
+            use_prefix = False
 
-    # Guardrail: cannot use phrase and prefix together
-    if use_phrase and use_prefix:
-        debug_print("Both use_phrase and use_prefix are True. Disabling use_prefix.")
-        use_prefix = False
+        # Build metadata filter dict from remaining kwargs
+        metadata_filters = {key: value for key, value in kwargs.items() if value is not None}
+        
+        if DEBUG_PRINT: debug_print("Metadata filters applied:", metadata_filters)
+        
+        # --- Perform search using HybridRetriever ---
+        results = retriever.search(
+            query=query, 
+            k=k, 
+            vector_search_method=vector_search_method, 
+            use_phrase=use_phrase, 
+            use_prefix=use_prefix, 
+            multi_fts=multi_fts,
+            fts_multi_weights=FTS_MULTI_WEIGHTS,
+            **metadata_filters
+        ) 
 
-    # Keep only non-None metadata fields
-    metadata_filters = {key: value for key, value in kwargs.items() if value is not None}
+        if DEBUG_PRINT:
+            debug_print(f"Hybrid search returned {len(results)} results")
+            for i, result in enumerate(results):
+                print(f"{i+1}: backend={result.backend}, score={result.score}, chunk_id={result.chunk_id}")
+
+        # Return structured results as dictionaries
+        return {"results": [result.model_dump() for result in results]}
     
-    if DEBUG:
-        debug_print("Metadata filters applied:", metadata_filters)
-    
-    # --- Perform search using HybridRetriever ---
-    results = retriever.search(
-        query=query, 
-        k=k, 
-        vector_search_method=vector_search_method, 
-        use_phrase=use_phrase, 
-        use_prefix=use_prefix, 
-        multi_fts=multi_fts,
-        fts_multi_weights=FTS_MULTI_WEIGHTS,
-        **metadata_filters
-    ) 
+    except sqlite3.OperationalError as e:
+        # Handle "database is locked" or disk issues
+        logger.error(f"SQLite operational error: {e}")
+        return "Error: The database is currently busy. Please wait a moment and try one more time."
 
-    if DEBUG:
-        debug_print(f"Hybrid search returned {len(results)} results")
-        for i, r in enumerate(results):
-            debug_print(f"{i+1}: backend={r.backend}, score={r.score}, chunk_id={r.chunk_id}")
+    except ChromaError as e:
+        # Handle collection missing or schema issues
+        logger.error(f"ChromaDB error: {e}")
+        return f"Error: Retrieval system failure ({type(e).__name__}). Try a simpler keyword search."
 
-    # Return structured results as dictionaries
-    return {"results": [result.model_dump() for result in results]}
+    except Exception as e:
+            logger.error(f"Unexpected tool error: {str(e)}")
+            return f"Error: An unexpected issue occurred during search: {str(e)}."
 
 
-# List of tools exposed to the agent
+# --- Agent Configuration ---
 tools = [hybrid_search_tool]
-
-# --- Define LLM model ---
-model = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True)
-
-# --- LangGraph agent setup --- 
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True, stream_usage=True)
 checkpointer = InMemorySaver()
 system_prompt = """
 You are a research assistant. When answering, first find relevant document chunks using the hybrid search tool. 
@@ -153,42 +171,100 @@ Prioritize chunks that exactly match key terms, then consider semantic similarit
 Return only the top 3 most relevant chunks. 
 """
 
-agent = create_agent(model, tools, checkpointer=checkpointer, system_prompt=system_prompt)
-if DEBUG and DRAW:
-    print_agent_graph(agent)
+agent = create_agent(model, tools, checkpointer=checkpointer, system_prompt=system_prompt, debug=DEBUG)
+if DRAW: print_agent_graph(agent)
 
 # --- Async interactive agent loop ---
 async def run_agent():
     """
-    Run the interactive hybrid search agent in an async loop.
-
-    Users can type queries and receive streaming responses.
-    Type 'exit' or 'quit' to stop the agent.
+    Orchestrates the async conversation loop.
+    Handles event streaming for real-time AI responses and tool performance tracking.
     """
 
     config = {"configurable": {"thread_id": "1"}}
-    print("Agent ready. Type 'exit' or 'quit' to end the chat.")
+    tool_timers = {}
+    print("\n\n✧ Agent ready. Type 'exit' or 'quit' to end the chat.")
     
     turn = 0
     while True:
         turn += 1
-        if DEBUG:
-            print(f"\n\n🟢 TURN {turn}")
+        user_input = input("\n\nYou: ")
+        if user_input.lower() in ['exit', 'quit']: break
 
-        user_input = input("You: ")
-        if user_input.lower() in ['exit', 'quit']:
-            break
+        if PRINT:
+            logger.info(f"→ Starting Turn {turn} with input: {user_input}")
 
         events = agent.astream_events(
             {"messages": [HumanMessage(content=user_input)]}, 
-            config=config
+            config=config, version="v2", stream_mode="updates"
         ) 
 
         async for event in events: 
-            if DEBUG and EVENTS:
-                 debug_print("Event received:", event["event"])
-            if event["event"] == "on_chat_model_stream":
-                print(event["data"]["chunk"].content, end="", flush=True)
+            kind = event["event"]
+            # Unique ID for this specific tool execution
+            run_id = event["run_id"] 
+
+            # --- State Updates ---
+            if UPDATES and kind == "on_chain_stream" and "updates" in event["data"]:
+                for node, delta in event["data"]["updates"].items():
+                    # Log the full delta to the FILE, print a summary to TERMINAL
+                    logger.debug(f"Node {node} output: {delta}")
+                    if node != "__metadata__": 
+                        print(f"◈ Node '{node}' updated state.")
+
+            # --- AI Thinking ---
+            if kind == "on_chat_model_start":
+                print("\n✧ Agent is thinking...\n", end=" ", flush=True)
+                sys.stdout.flush()
+
+            # --- Tool Start ---
+            if kind == "on_tool_start":
+                tool_timers[run_id] = time.time()
+                print(f"▶ Tool: {event['name']}")
+                logger.debug(f"Tool {event['name']} input: {event['data'].get('input')}")
+                sys.stdout.flush()
+
+            # --- Tool End and Latency ---
+            if kind == "on_tool_end":
+                start_time = tool_timers.pop(run_id, None)
+                latency = time.time() - start_time if start_time else 0
+                print(f"⏱ {latency:.2f}s {event['name']} finished.")
+                logger.info(f"Tool {event['name']} completed in {latency:.2f}s")
+                sys.stdout.flush()
+
+             # --- Tool Error ---
+            if kind == "on_tool_error":
+                start_time = tool_timers.pop(run_id, None)
+                error_msg = event.get("data", {}).get("error", "Unknown error")
+                print(f"!! ERROR in {event['name']}: {error_msg}")
+                logger.error(f"Tool {event['name']} failed: {error_msg}")
+
+            # --- LLM Streaming Content ---
+            if kind == "on_chat_model_stream":
+                content = event["data"]["chunk"].content
+                if content:
+                    print(content, end="", flush=True)
+
+            # --- Token Usage ---
+            if kind == "on_chat_model_end":
+                ai_message = event["data"].get("output")
+                
+                # 1. Check for modern usage_metadata (Best for v0.3+)
+                if ai_message and hasattr(ai_message, "usage_metadata") and ai_message.usage_metadata:
+                    usage = ai_message.usage_metadata
+                    logger.info(f"Tokens: {usage.get('total_tokens')} "
+                                f"[In: {usage.get('input_tokens')}, Out: {usage.get('output_tokens')}]")
+    
+                # 2. Check for legacy response_metadata (Fallback)
+                elif ai_message and hasattr(ai_message, "response_metadata"):
+                    usage = ai_message.response_metadata.get("token_usage", {})
+                    if usage:
+                        logger.info(f"Tokens: {usage.get('total_tokens')}")
+
+            # --- Turn Separator ---
+            if kind == "on_chain_end" and event["name"] == "agent":
+                print("\n" + "─" * 40)
+                logger.info(f"Turn {turn} complete.")
 
 
 # --- Entry point ---

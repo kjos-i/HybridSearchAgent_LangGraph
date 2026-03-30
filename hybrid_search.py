@@ -3,21 +3,14 @@ Hybrid search retriever combining full-text and vector-based search.
 
 This module provides the `HybridRetriever` class that:
     - Integrates keyword/phrase/prefix-based FTS results.
-    - Integrates semantic vector search results (Chroma or similar vector DB).
+    - Integrates semantic vector search results (Chroma DB).
     - Computes hybrid scores for ranking results across both search types.
     - Returns deduplicated and ranked `SearchResult` objects.
 """
 
-# Local application / project imports
+# Local imports
 from pydantic_models import SearchResult
-from config import DEBUG
-
-
-# Enable debug prints for troubleshooting
-def debug_print(*args, **kwargs):
-    if DEBUG:
-        print("[DEBUG]", *args, **kwargs)
-        
+       
 
 class HybridRetriever:
     """
@@ -25,7 +18,7 @@ class HybridRetriever:
 
     Attributes:
         fts (FTSStore): Instance of FTSStore for keyword/phrase/prefix search.
-        vector (Any): Vector store instance (e.g., Chroma).
+        vector (Any): Vector store instance (Chroma DB).
         fts_weight (float): Weight of FTS scores in hybrid scoring.
         vector_similarity_weight (float): Weight for vector similarity scores.
         vector_mmr_weight (float): Weight for vector MMR scores.
@@ -131,11 +124,6 @@ class HybridRetriever:
             list[SearchResult]: Ranked and deduplicated hybrid search results.
         """
 
-        if DEBUG:
-            debug_print(f"HybridRetriever.search called with query='{query}', k={k}, vector_search_method={vector_search_method}")
-            debug_print("use_phrase:", use_phrase, "use_prefix:", use_prefix, "multi_fts:", multi_fts)
-            debug_print("metadata_filters:", metadata_filters)
-
         # --- FTS search ---
         if multi_fts:
             fts_multi_weights = fts_multi_weights or {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
@@ -148,8 +136,6 @@ class HybridRetriever:
                 metadata_filters=metadata_filters,
                 fts_multi_weights=fts_multi_weights
             )
-            if DEBUG:
-                debug_print(f"FTS multi-mode returned {len(fts_results)} results")
         
         else:
             fts_results = self.fts.search_single(
@@ -159,9 +145,6 @@ class HybridRetriever:
                 use_prefix=use_prefix,
                 metadata_filters=metadata_filters
                 )
-            if DEBUG:
-                debug_print(f"FTS single-mode returned {len(fts_results)} results")
-
 
         # --- Vector search ---
         if vector_search_method == "similarity":
@@ -178,9 +161,6 @@ class HybridRetriever:
                 filter=metadata_filters if metadata_filters else None
             )
             backend_label = "vector_mmr"
-
-        if DEBUG:
-            debug_print(f"Vector search returned {len(vector_result_objects)} results")
         
         else:
             raise ValueError(f"Unknown vector search method: {vector_search_method}")

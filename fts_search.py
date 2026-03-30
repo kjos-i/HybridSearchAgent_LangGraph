@@ -13,7 +13,7 @@ Features:
 import json
 import sqlite3
 
-# Local application / project imports
+# Local imports
 from pydantic_models import SearchResult
 
 
@@ -147,7 +147,7 @@ class FTSStore:
         sql += " LIMIT ?"  
         params.append(k)
 
-        # Execute query and fetch results
+        # Execute query and fetch results - WHERE docs MATCH ? AND source = ? AND category = ? LIMIT ?
         self.cur.execute(sql, params)
         rows = self.cur.fetchall()
 
@@ -217,13 +217,12 @@ class FTSStore:
                 result_key = (result.page_content, result.chunk_id)
 
                 # invert bm25 (lower = better → higher = better)
-                fts_rank_score = -result.score * weight
+                match_score = (1.0 / (result.score + 1e-6)) * weight
 
                 if result_key not in unique_dict_fts:
-                    result.score = fts_rank_score
-                    unique_dict_fts[result_key] = result
+                    unique_dict_fts[result_key] = [result, match_score]
                 else:
-                    unique_dict_fts[result_key].score += fts_rank_score
+                    unique_dict_fts[result_key][1] += match_score
         
 
         # --- Keyword search ---
@@ -255,8 +254,10 @@ class FTSStore:
             )
             add_results(results, fts_multi_weights["prefix"])
 
-        # --- Final ranking ---
-        ranked = sorted(unique_dict_fts.values(), key=lambda x: x.score, reverse=True)
+        # --- Final ranking ---        
+        # Sort based on the combined score (second item in tupe)
+        ranked_pairs = sorted(unique_dict_fts.values(), key=lambda x: x[1], reverse=True)
 
-        return ranked[:k]
-        
+        # Return just the original objects (the first item in the list)
+        return [pair[0] for pair in ranked_pairs[:k]]
+    
