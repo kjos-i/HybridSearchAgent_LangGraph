@@ -13,6 +13,7 @@ import asyncio
 from typing import Literal
 import sys
 import time
+from pathlib import Path
 
 # Third-party
 from dotenv import load_dotenv
@@ -165,11 +166,9 @@ def hybrid_search_tool(**kwargs):
 tools = [hybrid_search_tool]
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True, stream_usage=True)
 checkpointer = InMemorySaver()
-system_prompt = """
-You are a research assistant. When answering, first find relevant document chunks using the hybrid search tool. 
-Prioritize chunks that exactly match key terms, then consider semantic similarity. 
-Return only the top 3 most relevant chunks. 
-"""
+prompt_path = Path(__file__).with_name("system_prompt_hybrid_search.txt")
+system_prompt = prompt_path.read_text(encoding="utf-8").strip()
+logger.info(f"Loaded system prompt from: {prompt_path}")
 
 agent = create_agent(model, tools, checkpointer=checkpointer, system_prompt=system_prompt, debug=DEBUG)
 if DRAW: print_agent_graph(agent)
@@ -191,8 +190,7 @@ async def run_agent():
         user_input = input("\n\nYou: ")
         if user_input.lower() in ['exit', 'quit']: break
 
-        if PRINT:
-            logger.info(f"→ Starting Turn {turn} with input: {user_input}")
+        logger.info(f"→ Starting Turn {turn} with input: {user_input}")
 
         events = agent.astream_events(
             {"messages": [HumanMessage(content=user_input)]}, 
