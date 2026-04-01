@@ -53,16 +53,25 @@ class FTSStore:
             CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(
                 page_content,
                 source,
+                doc_hash_id,
+                filename,
+                file_type,
+                folder,
+                doc_word_count,
+                doc_char_count,
+                ingested_at,
                 category,
+                language,
                 chunk_id,
-                start_char,
-                end_char,
-                metadata 
+                chunk_hash_id,
+                chunk_start_char,
+                chunk_end_char,
+                metadata
             )
         """)
         self.conn.commit()
 
-
+  
     def add_documents(self, chunks): 
         """
         Add a list of document chunks to the FTS database.
@@ -80,11 +89,20 @@ class FTSStore:
             meta = chunk.metadata
             batch.append((
                 chunk.page_content,
-                meta.get("source"),           
+                meta.get("source"),
+                meta.get("doc_hash_id"),
+                meta.get("filename"),
+                meta.get("file_type"),
+                meta.get("folder"),
+                meta.get("doc_word_count"),
+                meta.get("doc_char_count"),
+                meta.get("ingested_at"),
                 meta.get("category"),
+                meta.get("language"),
                 meta.get("chunk_id", i),
-                meta.get("start_char"),
-                meta.get("end_char"),
+                meta.get("chunk_hash_id"),
+                meta.get("chunk_start_char"),
+                meta.get("chunk_end_char"),
                 json.dumps(meta)
             ))
 
@@ -92,13 +110,22 @@ class FTSStore:
             INSERT INTO docs (
                 page_content,
                 source,
+                doc_hash_id,
+                filename,
+                file_type,
+                folder,
+                doc_word_count,
+                doc_char_count,
+                ingested_at,
                 category,
+                language,
                 chunk_id,
-                start_char,
-                end_char,
+                chunk_hash_id,
+                chunk_start_char,
+                chunk_end_char,
                 metadata
             ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, batch)  
         self.conn.commit() 
 
@@ -111,7 +138,7 @@ class FTSStore:
             query (str): Search query string.
             k (int): Maximum number of results to return. Defaults to 3.
             metadata_filters (dict, optional): Key-value filters on metadata.
-                Allowed keys: "source", "category", "chunk_id", "start_char", "end_char".
+                Allowed keys: "source", "category", "chunk_id", "chunk_start_char", "chunk_end_char".
             use_phrase (bool): If True, search for the exact phrase.
             use_prefix (bool): If True, search using prefix matching (query*).
 
@@ -128,7 +155,9 @@ class FTSStore:
         
         # Base SQL query
         sql = """
-            SELECT page_content, source, category, chunk_id, start_char, end_char, metadata, bm25(docs) as score
+            SELECT page_content, source, doc_hash_id, filename, file_type, folder, doc_word_count, 
+                    doc_char_count, ingested_at, category, language, chunk_id, chunk_hash_id, 
+                    chunk_start_char, chunk_end_char, metadata, bm25(docs) as score
             FROM docs
             WHERE docs MATCH ?
         """                                
@@ -136,13 +165,16 @@ class FTSStore:
         params = [fts_query] 
 
         # Apply optional metadata filters
-        allowed = {"source", "category", "chunk_id", "start_char", "end_char"}    
+        allowed = {"source", "doc_hash_id", "filename", "file_type", "folder", "doc_word_count", 
+                    "doc_char_count", "ingested_at", "category", "language", "chunk_id", "chunk_hash_id", 
+                    "chunk_start_char", "chunk_end_char"}  
+          
         if metadata_filters:
             for key, value in metadata_filters.items():
                 if key in allowed:
                     sql += f" AND {key} = ?"
                     params.append(value)
-
+                    
         # Limit number of results
         sql += " LIMIT ?"  
         params.append(k)
@@ -158,12 +190,21 @@ class FTSStore:
                 SearchResult(
                     page_content = row[0], 
                     source = row[1], 
-                    category = row[2],
-                    chunk_id = row[3],
-                    start_char = row[4],
-                    end_char = row[5],
-                    metadata = json.loads(row[6]) if row[6] else {},
-                    score = row[7] or 0,
+                    doc_hash_id = row[2],
+                    filename = row[3],
+                    file_type = row[4],
+                    folder = row[5],
+                    doc_word_count = row[6],
+                    doc_char_count = row[7],
+                    ingested_at = row[8],
+                    category = row[9],
+                    language = row[10],
+                    chunk_id = row[11],
+                    chunk_hash_id = row[12],
+                    chunk_start_char = row[13],
+                    chunk_end_char = row[14],
+                    metadata = json.loads(row[15]) if row[15] else {},
+                    score = row[16] or 0,
                     backend = "fts"
                 )
             )

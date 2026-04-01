@@ -10,7 +10,6 @@ This module defines a LangGraph-enabled research assistant agent that:
 
 # Standard library
 import asyncio
-from typing import Literal
 import sys
 import time
 from pathlib import Path
@@ -25,12 +24,12 @@ from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 # Local imports
 from fts_search import FTSStore
 from hybrid_search import HybridRetriever
-from pydantic_models import ChunkMetadata
+from pydantic_models import HybridSearchArgs
 from utils import debug_print, print_agent_graph, setup_logger
 from config import DEBUG, UPDATES, DRAW, DEBUG_PRINT, PRINT
 
@@ -53,10 +52,13 @@ vector_store = Chroma(
 fts_store = FTSStore()
 
 # --- Search Strategy Hyperparameters ---
-FTS_WEIGHT = 0.3
-VECTOR_SIMILARITY_WEIGHT = 0.7
-VECTOR_MMR_WEIGHT = 0.7
-VECTOR_MAX_SCORE = 1.0
+# Preferably, keep FTS_WEIGHT + VECTOR WEIGHT <= 1.0 for better score separation, but not strictly required.
+# Ensure that FTS_WEIGHT + VECTOR WEIGHT always equals the same total
+FTS_WEIGHT = 0.5
+VECTOR_SIMILARITY_WEIGHT = 0.5
+VECTOR_MMR_WEIGHT = 0.5
+VECTOR_MAX_SCORE = 1.5 # For Default L2 distance Chroma scores
+FTS_MAX_SCORE = 20.0 # For SQLite BM25 scores
 FTS_MULTI_WEIGHTS = {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
 
 # Global retriever instance used by the tool
@@ -66,33 +68,9 @@ retriever = HybridRetriever(
     fts_weight=FTS_WEIGHT,
     vector_similarity_weight=VECTOR_SIMILARITY_WEIGHT,
     vector_mmr_weight=VECTOR_MMR_WEIGHT,
+    fts_max_score=FTS_MAX_SCORE,
     vector_max_score=VECTOR_MAX_SCORE
 )
-
-
-# --- Input schema for the hybrid search tool ---
-class HybridSearchArgs(ChunkMetadata):
-    """
-    Validation schema for hybrid search tool inputs.
-    
-    Attributes:
-        query: The user's search string.
-        k: Maximum number of documents to retrieve.
-        vector_search_method: Logic for vector ranking ('similarity' or 'mmr').
-        use_phrase: Whether to force exact phrase matching in FTS.
-        use_prefix: Whether to allow wildcard/prefix matching in FTS.
-        multi_fts: Whether to run all FTS modes and fuse scores.
-    """
-
-    query: str = Field(..., description="Search query.")
-    k: int = Field(5, description="Number of results to return.") 
-    vector_search_method: Literal["similarity", "mmr"] = Field(
-        "similarity",
-        description="Use 'similarity' for relevance or 'mmr' for diversity."
-    )
-    use_phrase: bool = Field(False, description="Enable exact phrase matching.")
-    use_prefix: bool = Field(False, description="Enable prefix keyword matching (e.g., 'bio*').")
-    multi_fts: bool = Field(False, description="Use multi-mode FTS search (keyword + phrase + prefix).")
 
 
 # --- Hybrid search tool definition ---
@@ -107,11 +85,11 @@ def hybrid_search_tool(**kwargs):
         3. Calls HybridRetriever to perform score-fused retrieval.
     """
     try:
-        if DEBUG_PRINT: debug_print("hybrid_search_tool called with kwargs:", kwargs)
+        logger.info(f"hybrid_search_tool called with kwargs: {kwargs}")
 
         # Extract required query and optional arguments
         query = kwargs.pop("query")
-        k = kwargs.pop("k", 5)
+        k = kwargs.pop("k", 3)
         vector_search_method = kwargs.pop("vector_search_method", "similarity")
         use_phrase = kwargs.pop("use_phrase", False)
         use_prefix = kwargs.pop("use_prefix", False)
@@ -119,13 +97,12 @@ def hybrid_search_tool(**kwargs):
 
         # Mutually exclusive search flags guardrail
         if use_phrase and use_prefix:
-            if DEBUG_PRINT: debug_print("Both use_phrase and use_prefix are True. Disabling use_prefix.")
+            logger.debug("Both use_phrase and use_prefix are True. Disabling use_prefix.")
             use_prefix = False
 
         # Build metadata filter dict from remaining kwargs
         metadata_filters = {key: value for key, value in kwargs.items() if value is not None}
-        
-        if DEBUG_PRINT: debug_print("Metadata filters applied:", metadata_filters)
+        logger.info(f"Metadata filters applied: {metadata_filters}")
         
         # --- Perform search using HybridRetriever ---
         results = retriever.search(
@@ -139,10 +116,10 @@ def hybrid_search_tool(**kwargs):
             **metadata_filters
         ) 
 
-        if DEBUG_PRINT:
-            debug_print(f"Hybrid search returned {len(results)} results")
-            for i, result in enumerate(results):
-                print(f"{i+1}: backend={result.backend}, score={result.score}, chunk_id={result.chunk_id}")
+        
+        logger.info(f"Hybrid search returned {len(results)} results")
+        for i, result in enumerate(results):
+            logger.info(f"{i+1}: backend={result.backend}, score={result.score}, chunk_id={result.chunk_id}")
 
         # Return structured results as dictionaries
         return {"results": [result.model_dump() for result in results]}
@@ -166,9 +143,9 @@ def hybrid_search_tool(**kwargs):
 tools = [hybrid_search_tool]
 model = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True, stream_usage=True)
 checkpointer = InMemorySaver()
-prompt_path = Path(__file__).with_name("system_prompt_hybrid_search.txt")
-system_prompt = prompt_path.read_text(encoding="utf-8").strip()
-logger.info(f"Loaded system prompt from: {prompt_path}")
+system_prompt_path = Path(__file__).with_name("system_prompt_hybrid_search.txt")
+system_prompt = system_prompt_path.read_text(encoding="utf-8").strip()
+logger.info(f"Loaded system prompt from: {system_prompt_path}")
 
 agent = create_agent(model, tools, checkpointer=checkpointer, system_prompt=system_prompt, debug=DEBUG)
 if DRAW: print_agent_graph(agent)

@@ -22,7 +22,7 @@ def debug_print(*args, **kwargs):
     
     Args:
         *args: Variable length argument list to print.
-        **kwargs: Arbitrary keyword arguments (e.g., sep, end).
+        **kwargs: Arbitrary keyword arguments.
     """
     if DEBUG_PRINT:
         print("[DEBUG]", *args, **kwargs)

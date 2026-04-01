@@ -32,6 +32,7 @@ class HybridRetriever:
             fts_weight: float, 
             vector_similarity_weight: float, 
             vector_mmr_weight: float, 
+            fts_max_score: float,
             vector_max_score: float
      ):
         """
@@ -51,6 +52,7 @@ class HybridRetriever:
         self.fts_weight = fts_weight
         self.vector_similarity_weight = vector_similarity_weight
         self.vector_mmr_weight = vector_mmr_weight
+        self.fts_max_score = fts_max_score
         self.vector_max_score = vector_max_score
 
 
@@ -58,30 +60,42 @@ class HybridRetriever:
         """
         Compute a unified hybrid score for ranking a single document.
 
-        Scores are normalized and weighted based on the backend:
-            - FTS: Inverts BM25 scores (lower BM25 → higher score)
-            - Vector similarity: normalized by vector_max_score
-            - Vector MMR: normalized by vector_max_score
+        Scores are normalized to a 0.0 - 1.0 scale where HIGHER is BETTER.
+        This ensures compatibility with sorted(reverse=True) ranking.
+
+        Normalization Logic:
+            - FTS: Converts negative BM25 to positive (negation) and scales by max_fts_score.
+            - Vector Similarity: Inverts distance (max_score - distance) / max_score.
+            - Vector MMR: Scales synthetic rank-based score by vector_max_score.
 
         Args:
             doc (SearchResult): Document result to score.
 
         Returns:
-            float: Weighted, normalized score used for hybrid ranking.
+            float: Weighted, normalized score (0.0 to 1.0) for hybrid ranking.
         """
+        
+        # Ensure we have a numeric score to work with, defaulting to 0 if None
+        raw_score = doc.score or 0  
 
-        raw_score = doc.score or 0
-        raw_score = max(raw_score, 0)
-
+        # Better matches are assigned numerically lower scores using SQLite FTS BM25 score
         if doc.backend == "fts":
-            norm_score = min(1 / (raw_score + 1e-6), 1.0)
+            # More negative is better in SQLite FTS, so we use abs()
+            # e.g., abs(-10.0) / 20.0 = 0.5
+            norm_score = min(abs(raw_score) / self.fts_max_score, 1.0)
             return norm_score * self.fts_weight
-
+        
+        # Chroma DB scores are distances (lower is better)
         elif doc.backend == "vector_similarity":
-            norm_score = min(raw_score / self.vector_max_score, 1.0)
+            # Chroma Distance: 0.0 is perfect, 1.0+ is poor.
+            # (max - distance) / max flips it: 0.0 becomes 1.0 (Higher is Better)
+            norm_score = max(0, (self.vector_max_score - raw_score) / self.vector_max_score)
             return norm_score * self.vector_similarity_weight
 
+        # Synthetic MMR score: Higher is better (rank 0 has highest score)
         elif doc.backend == "vector_mmr":
+            # Synthetic MMR: Already designed so Higher is Better (Rank 0 = Max)
+            # Simply scale it to a 0.0 - 1.0 range.
             norm_score = min(raw_score / self.vector_max_score, 1.0)
             return norm_score * self.vector_mmr_weight
 
@@ -155,11 +169,21 @@ class HybridRetriever:
             backend_label = "vector_similarity"
        
         elif vector_search_method == "mmr":
-            vector_result_objects = self.vector.max_marginal_relevance_search_with_score(
+            vector_result_mmr = self.vector.max_marginal_relevance_search(
                 query, 
                 k=k, 
                 filter=metadata_filters if metadata_filters else None
             )
+
+            # Assumes the first result in the list is the most important and the last the least.
+            # Since "mmr" search gives no raw score, assign a synthetic score based on its rank.
+            # Map rank 0 -> vector_max_score, rank 1 -> slightly less, etc.
+            vector_result_objects = []
+            for i, result in enumerate(vector_result_mmr):
+                # Synthetic score: higher for better rank (i: current rank index, k: total nr. of results)
+                score = self.vector_max_score * (1 - (i / k))
+                vector_result_objects.append((result, score))
+
             backend_label = "vector_mmr"
         
         else:
@@ -196,7 +220,8 @@ class HybridRetriever:
 
                 if self._hybrid_score(item) > self._hybrid_score(existing):    
                     unique_dict[item_key] = item    
-        
+
+        # Rank higher scores first
         unique_list = list(unique_dict.values()) 
         ranked = sorted(unique_list, key=self._hybrid_score, reverse=True) 
         

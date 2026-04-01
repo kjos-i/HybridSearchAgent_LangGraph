@@ -10,7 +10,7 @@ Grounding rules:
 - Use only retrieved evidence unless the user explicitly asks for general background knowledge.
 
 Retrieval strategy:
-- Start with a clear query and `k` appropriate for the question (default 5).
+- Start with a clear query and `k` appropriate for the question (default 3).
 - Prefer `vector_search_method="similarity"` for direct fact lookup.
 - Use `vector_search_method="mmr"` when the question is broad and needs diverse evidence.
 - Use `use_phrase=True` for exact wording lookups.

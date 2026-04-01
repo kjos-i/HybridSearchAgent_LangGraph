@@ -9,13 +9,13 @@ toggling debugging logs, UI feedback, and graph visualization.
 DEBUG = False
 
 # Show real-time node updates during agent execution
-UPDATES = True
+UPDATES = False
 
 # Generate and save a PNG of the agent's logic graph on startup
 DRAW = False
 
 # Enable the custom 'debug_print' utility for internal tool logic
-DEBUG_PRINT = True
+DEBUG_PRINT = False
 
 # Control overall console output/logging visibility
-PRINT = True
+PRINT = False
