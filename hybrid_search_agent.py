@@ -34,7 +34,7 @@ from utils import debug_print, print_agent_graph, setup_logger
 from config import DEBUG, UPDATES, DRAW, DEBUG_PRINT, PRINT
 
 # Load env from specific path
-load_dotenv("C:/Users/kjosi/dotenv/.env")
+load_dotenv()
 
 
 # Initialize logger

@@ -114,12 +114,6 @@ Required for OpenAI-based embeddings/model calls:
 OPENAI_API_KEY=...
 ```
 
-Environment notes:
-
-- `hybrid_search_agent.py` currently calls `load_dotenv("C:/Users/kjosi/dotenv/.env")`.
-- Update that path if your local `.env` lives elsewhere.
-- Ensure `OPENAI_API_KEY` is available in your active environment before running scripts or notebook cells.
-
 ## Run Instructions
 
 From this folder (important because the script expects local `fts.db` and `./chroma_db` paths):
