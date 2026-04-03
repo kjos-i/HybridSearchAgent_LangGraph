@@ -58,6 +58,29 @@ def print_agent_graph(agent, filename="agent_graph.png"):
 
 # --- Logging Infrastructure ---
 def setup_logger(name=__name__, log_file="agent.log"):
+    """
+    Configures a file-only logger for background activity tracking.
+    """
+
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.DEBUG)
+
+    # Singleton pattern: Prevent duplicate handlers
+    if not logger.handlers:
+        # 1. File Handler: Captures EVERYTHING (DEBUG and up) for the permanent record
+        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler.setLevel(logging.DEBUG) 
+        file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(file_formatter)
+
+        # Attach handler to the logger
+        logger.addHandler(file_handler)
+
+    return logger
+
+
+# --- Logging Infrastructure --- Dual Handler Version ---
+def setup_logger_dual(name=__name__, log_file="agent.log"):
     """Configures a dual-handler logger for robust activity tracking.
     
     Handlers:
@@ -77,13 +100,13 @@ def setup_logger(name=__name__, log_file="agent.log"):
 
     # Singleton pattern: Prevent duplicate handlers if the setup is called twice
     if not logger.handlers:
-        # 1. File Handler: Captures deep technical details for troubleshooting
+        # File Handler: Captures deep technical details for troubleshooting
         file_handler = logging.FileHandler(log_file, encoding='utf-8')
         file_handler.setLevel(logging.DEBUG)
         file_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         file_handler.setFormatter(file_formatter)
 
-        # 2. Console Handler: Provides immediate, readable feedback to the operator
+        # Console Handler: Provides immediate, readable feedback to the operator
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(logging.INFO)
         console_formatter = logging.Formatter('[%(levelname)s] %(message)s')

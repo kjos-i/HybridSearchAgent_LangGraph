@@ -150,6 +150,7 @@ logger.info(f"Loaded system prompt from: {system_prompt_path}")
 agent = create_agent(model, tools, checkpointer=checkpointer, system_prompt=system_prompt, debug=DEBUG)
 if DRAW: print_agent_graph(agent)
 
+
 # --- Async interactive agent loop ---
 async def run_agent():
     """
