@@ -22,7 +22,7 @@ class HybridRetriever:
         fts_weight (float): Weight of FTS scores in hybrid scoring.
         vector_similarity_weight (float): Weight for vector similarity scores.
         vector_mmr_weight (float): Weight for vector MMR scores.
-        vector_max_score (float): Maximum expected vector similarity score (for normalization).
+        fts_max_score (float): Maximum expected FTS score (for normalization).
     """
 
     def __init__(
@@ -32,19 +32,10 @@ class HybridRetriever:
             fts_weight: float, 
             vector_similarity_weight: float, 
             vector_mmr_weight: float, 
-            fts_max_score: float,
-            vector_max_score: float
+            fts_max_score: float
      ):
         """
         Initialize the HybridRetriever.
-
-        Args:
-            fts_store: Instance of FTSStore.
-            vector_store: Loaded vector DB instance (e.g., Chroma).
-            fts_weight (float): Weight for FTS BM25 scores.
-            vector_similarity_weight (float): Weight for vector similarity scores.
-            vector_mmr_weight (float): Weight for vector MMR scores.
-            vector_max_score (float): Maximum expected vector similarity score.
         """
 
         self.fts = fts_store
