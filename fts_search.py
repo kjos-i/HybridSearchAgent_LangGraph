@@ -175,6 +175,9 @@ class FTSStore:
                     sql += f" AND {key} = ?"
                     params.append(value)
                     
+        # Order by score (ascending because lower BM25 is better using SQLite's bm25 function)
+        sql += " ORDER BY score ASC"
+
         # Limit number of results
         sql += " LIMIT ?"  
         params.append(k)
@@ -296,7 +299,7 @@ class FTSStore:
             add_results(results, fts_multi_weights["prefix"])
 
         # --- Final ranking ---        
-        # Sort based on the combined score (second item in tupe)
+        # Sort based on the combined score (second item in tupele)
         ranked_pairs = sorted(unique_dict_fts.values(), key=lambda x: x[1], reverse=True)
 
         # Return just the original objects (the first item in the list)

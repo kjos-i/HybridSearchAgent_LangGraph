@@ -53,50 +53,32 @@ class HybridRetriever:
         self.vector_similarity_weight = vector_similarity_weight
         self.vector_mmr_weight = vector_mmr_weight
         self.fts_max_score = fts_max_score
-        self.vector_max_score = vector_max_score
 
 
     def _hybrid_score(self, doc: SearchResult) -> float:
         """
         Compute a unified hybrid score for ranking a single document.
-
-        Scores are normalized to a 0.0 - 1.0 scale where HIGHER is BETTER.
-        This ensures compatibility with sorted(reverse=True) ranking.
-
-        Normalization Logic:
-            - FTS: Converts negative BM25 to positive (negation) and scales by max_fts_score.
-            - Vector Similarity: Inverts distance (max_score - distance) / max_score.
-            - Vector MMR: Scales synthetic rank-based score by vector_max_score.
-
-        Args:
-            doc (SearchResult): Document result to score.
-
-        Returns:
-            float: Weighted, normalized score (0.0 to 1.0) for hybrid ranking.
         """
         
         # Ensure we have a numeric score to work with, defaulting to 0 if None
         raw_score = doc.score or 0  
 
-        # Better matches are assigned numerically lower scores using SQLite FTS BM25 score
+        # Scores from FTS5 BM25 are negative, smaller is better
         if doc.backend == "fts":
-            # More negative is better in SQLite FTS, so we use abs()
-            # e.g., abs(-10.0) / 20.0 = 0.5
-            norm_score = min(abs(raw_score) / self.fts_max_score, 1.0)
+            # Cap at 0 to avoid positive scores.
+            norm_score = min(raw_score, 0)  
+            # Normalize to [0, 1] range, 1 being best score.
+            norm_score = abs(norm_score) / self.fts_max_score  
             return norm_score * self.fts_weight
         
-        # Chroma DB scores are distances (lower is better)
+        # Chroma DB similarity search with relevance scores: 1 best, 0 worst.
         elif doc.backend == "vector_similarity":
-            # Chroma Distance: 0.0 is perfect, 1.0+ is poor.
-            # (max - distance) / max flips it: 0.0 becomes 1.0 (Higher is Better)
-            norm_score = max(0, (self.vector_max_score - raw_score) / self.vector_max_score)
+            norm_score = max(raw_score, 0)
             return norm_score * self.vector_similarity_weight
 
-        # Synthetic MMR score: Higher is better (rank 0 has highest score)
+        # # Synthetic score based on rank: Best rank (i=0) gets highest score (score = (1 - (i / k))).
         elif doc.backend == "vector_mmr":
-            # Synthetic MMR: Already designed so Higher is Better (Rank 0 = Max)
-            # Simply scale it to a 0.0 - 1.0 range.
-            norm_score = min(raw_score / self.vector_max_score, 1.0)
+            norm_score = max(raw_score, 0)
             return norm_score * self.vector_mmr_weight
 
         # fallback for unknown backend
@@ -162,7 +144,7 @@ class HybridRetriever:
 
         # --- Vector search ---
         if vector_search_method == "similarity":
-            vector_result_objects = self.vector.similarity_search_with_score(
+            vector_result_objects = self.vector.similarity_search_with_relevance_scores(
                 query, k=k, 
                 filter=metadata_filters if metadata_filters else None
             )
@@ -177,11 +159,10 @@ class HybridRetriever:
 
             # Assumes the first result in the list is the most important and the last the least.
             # Since "mmr" search gives no raw score, assign a synthetic score based on its rank.
-            # Map rank 0 -> vector_max_score, rank 1 -> slightly less, etc.
             vector_result_objects = []
             for i, result in enumerate(vector_result_mmr):
-                # Synthetic score: higher for better rank (i: current rank index, k: total nr. of results)
-                score = self.vector_max_score * (1 - (i / k))
+                # Synthetic score based on rank: Best rank (i=0) gets highest score.
+                score = (1 - (i / k)) 
                 vector_result_objects.append((result, score))
 
             backend_label = "vector_mmr"

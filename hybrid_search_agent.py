@@ -57,7 +57,6 @@ fts_store = FTSStore()
 FTS_WEIGHT = 0.5
 VECTOR_SIMILARITY_WEIGHT = 0.5
 VECTOR_MMR_WEIGHT = 0.5
-VECTOR_MAX_SCORE = 1.5 # For Default L2 distance Chroma scores
 FTS_MAX_SCORE = 20.0 # For SQLite BM25 scores
 FTS_MULTI_WEIGHTS = {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
 
@@ -69,7 +68,6 @@ retriever = HybridRetriever(
     vector_similarity_weight=VECTOR_SIMILARITY_WEIGHT,
     vector_mmr_weight=VECTOR_MMR_WEIGHT,
     fts_max_score=FTS_MAX_SCORE,
-    vector_max_score=VECTOR_MAX_SCORE
 )
 
 
