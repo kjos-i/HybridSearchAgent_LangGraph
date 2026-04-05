@@ -52,8 +52,6 @@ vector_store = Chroma(
 fts_store = FTSStore()
 
 # --- Search Strategy Hyperparameters ---
-# Preferably, keep FTS_WEIGHT + VECTOR WEIGHT <= 1.0 for better score separation, but not strictly required.
-# Ensure that FTS_WEIGHT + VECTOR WEIGHT always equals the same total
 FTS_WEIGHT = 0.5
 VECTOR_SIMILARITY_WEIGHT = 0.5
 VECTOR_MMR_WEIGHT = 0.5
