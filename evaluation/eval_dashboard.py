@@ -461,17 +461,18 @@ run_cases = cases_df[cases_df["run_id"] == selected_run_id].copy()
 # ---------------------------------------------------------------------------
 
 st.title("Evaluation Dashboard")
-st.caption("HybridSearchAgent \u2014 DeepEval RAG evaluation results")
+st.caption("HybridSearchAgent \u2014 DeepEval and deterministic evaluation results")
 
 
 # ===================================================================
 # Tabbed layout
 # ===================================================================
 
-tab_summary, tab_analysis, tab_trends = st.tabs([
+tab_summary, tab_analysis, tab_trends, tab_guide = st.tabs([
     "Run Summary",
     "Deep Analysis",
     "Historical Trends",
+    "Metrics Guide",
 ])
 
 
@@ -793,3 +794,298 @@ with tab_trends:
                     )
         else:
             st.info("This case has only been evaluated in one run so far.")
+
+
+# ===================================================================
+# Tab 4 — Metrics Guide
+# ===================================================================
+
+with tab_guide:
+
+    st.caption("Reference guide for the dashboard tabs, metrics, and verdict logic.")
+
+    # --- Dashboard tabs overview ---
+    st.subheader("Dashboard Tabs")
+
+    st.markdown(
+        "**Run Summary** — Top-level KPIs (pass rate, average score, latency), "
+        "retrieval quality averages, a colour-coded per-case results table, "
+        "grouped bar charts of metric scores, and expandable answer details for each case."
+    )
+    st.markdown(
+        "**Deep Analysis** — Radar charts comparing LLM generation vs retrieval metric "
+        "balance, score distribution histograms, a correlation heatmap showing how "
+        "metrics relate to each other, and a stacked latency breakdown per case."
+    )
+    st.markdown(
+        "**Historical Trends** — Line charts tracking summary scores, DeepEval metric "
+        "averages, and latency across all evaluation runs over time. Includes a "
+        "per-case tracker to follow a single case across runs. This tab is especially "
+        "important because the underlying models (both the agent LLM and the judge LLM) "
+        "can change over time — provider updates, version bumps, or switching models entirely "
+        "can silently shift evaluation scores. Tracking trends across runs lets you detect "
+        "regressions early and distinguish genuine pipeline improvements from model-driven "
+        "score changes."
+    )
+
+    st.divider()
+
+    # --- Metrics at a glance ---
+    st.subheader("Metrics at a Glance")
+
+    st.markdown("**LLM-Judged Metrics** — scored by a judge model via DeepEval")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Answer Relevancy", "Key": "answer_relevancy", "Description": "Is the answer on-topic for the question?"},
+            {"Metric": "Faithfulness", "Key": "faithfulness", "Description": "Are all claims supported by the retrieved context?"},
+            {"Metric": "Contextual Precision", "Key": "contextual_precision", "Description": "Are relevant chunks ranked above irrelevant ones?"},
+            {"Metric": "Contextual Recall", "Key": "contextual_recall", "Description": "Does the context cover all needed information?"},
+            {"Metric": "Contextual Relevancy", "Key": "contextual_relevancy", "Description": "What fraction of retrieved chunks are relevant?"},
+            {"Metric": "Hallucination", "Key": "hallucination", "Description": "Does the answer contradict the context?"},
+            {"Metric": "Correctness (GEval)", "Key": "correctness_g_eval", "Description": "Is the answer correct compared to the expected output?"},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("**Deterministic Metrics** — computed directly without an LLM judge")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Source Hit Rate", "Key": "source_hit_rate", "Description": "Were the expected source documents retrieved?"},
+            {"Metric": "MRR", "Key": "mrr", "Description": "How early does the first relevant result appear?"},
+            {"Metric": "Precision@k", "Key": "precision_at_k", "Description": "What fraction of retrieved results are relevant?"},
+            {"Metric": "Recall@k", "Key": "recall_at_k", "Description": "What fraction of expected sources were retrieved?"},
+            {"Metric": "NDCG@k", "Key": "ndcg_at_k", "Description": "How good is the overall ranking quality?"},
+            {"Metric": "Metadata Match", "Key": "metadata_match_ratio", "Description": "Do retrieved results satisfy the metadata filters?"},
+            {"Metric": "Backend Distribution", "Key": "backend_distribution", "Description": "How are results split across search backends?"},
+            {"Metric": "Required Keyword Hit Rate", "Key": "required_keyword_hit_rate", "Description": "Does the answer contain the required key terms?"},
+            {"Metric": "Disallowed Keyword Hits", "Key": "disallowed_keyword_hits", "Description": "Does the answer avoid disallowed terms?"},
+            {"Metric": "Average Metric Score", "Key": "avg_metric_score", "Description": "Mean of all LLM-judged scores (0\u2013100)."},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.divider()
+
+    # --- Detailed metric explanations ---
+    st.subheader("LLM-Judged Metrics (DeepEval)")
+    st.markdown(
+        "These metrics use a judge LLM (configured via `JUDGE_MODEL` in `eval_config.py`) "
+        "to score each test case. All return a score between 0 and 1, a reason, and a pass/fail "
+        "result based on the configured threshold."
+    )
+
+    with st.expander("Answer Relevancy"):
+        st.markdown(
+            "**What it evaluates:** Whether the agent's answer is relevant to the user's question. "
+            "It checks that the response actually addresses what was asked rather than providing "
+            "tangential or off-topic information.\n\n"
+            "**How it is calculated:** The judge LLM analyses the input question and the actual output. "
+            "It generates synthetic questions that the actual output could answer, then measures the "
+            "overlap between those synthetic questions and the original input. A high overlap means the "
+            "answer is on-topic.\n\n"
+            "**Why it matters:** A RAG system can retrieve perfect context but still produce an answer "
+            "that drifts from the question. This is one of the two gate metrics for the PASS/REVIEW verdict."
+        )
+
+    with st.expander("Faithfulness"):
+        st.markdown(
+            "**What it evaluates:** Whether every claim in the agent's answer is supported by the "
+            "retrieved context. A faithful answer makes no statements that go beyond what the context provides.\n\n"
+            "**How it is calculated:** The judge LLM extracts individual claims from the actual output and "
+            "checks each one against the retrieval context. The score is the fraction of claims that are "
+            "fully supported. A score of 1.0 means every claim traces back to a retrieved chunk.\n\n"
+            "**Why it matters:** Faithfulness is the core safeguard against hallucination in RAG. This is "
+            "one of the two gate metrics for the PASS/REVIEW verdict."
+        )
+
+    with st.expander("Contextual Precision"):
+        st.markdown(
+            "**What it evaluates:** Whether the relevant chunks in the retrieval context are ranked higher "
+            "than irrelevant ones. It measures ranking quality, not just presence.\n\n"
+            "**How it is calculated:** The judge LLM classifies each node in the retrieval context as relevant "
+            "or irrelevant based on the expected output. It then computes a weighted precision score that "
+            "rewards relevant items appearing earlier in the list.\n\n"
+            "**Why it matters:** In a hybrid search system, retrieval order matters. If relevant documents are "
+            "buried below noise, the LLM may miss or deprioritise them."
+        )
+
+    with st.expander("Contextual Recall"):
+        st.markdown(
+            "**What it evaluates:** Whether the retrieval context contains all the information needed to "
+            "produce the expected output. It checks for completeness of the retrieved evidence.\n\n"
+            "**How it is calculated:** The judge LLM breaks the expected output into individual sentences or "
+            "claims, then checks whether each one can be attributed to at least one node in the retrieval "
+            "context. The score is the fraction of expected claims that are supported.\n\n"
+            "**Why it matters:** A retrieval system might return chunks that are individually relevant but "
+            "collectively miss key facts needed for a complete answer."
+        )
+
+    with st.expander("Contextual Relevancy"):
+        st.markdown(
+            "**What it evaluates:** Whether each chunk in the retrieval context is relevant to the input "
+            "question. Unlike contextual precision (which focuses on ranking), this measures overall noise level.\n\n"
+            "**How it is calculated:** The judge LLM evaluates each retrieval context node against the input "
+            "question. The score is the fraction of retrieved nodes that are relevant. A score of 1.0 means "
+            "every retrieved chunk was useful.\n\n"
+            "**Why it matters:** Retrieving too many irrelevant chunks dilutes the LLM's attention and can "
+            "lead to worse answers or higher latency."
+        )
+
+    with st.expander("Hallucination"):
+        st.markdown(
+            "**What it evaluates:** Whether the agent's answer contradicts the provided context. While "
+            "faithfulness checks for unsupported claims, hallucination specifically detects factual contradictions.\n\n"
+            "**How it is calculated:** The judge LLM compares the actual output against the context and "
+            "determines whether any statements in the output contradict the context. The score represents "
+            "the degree to which the output is free of contradictions (higher is better).\n\n"
+            "**Why it matters:** A hallucinated answer is worse than an incomplete one \u2014 it actively misleads "
+            "the user. This provides an additional safety net beyond faithfulness."
+        )
+
+    with st.expander("Grounded Correctness (GEval)"):
+        st.markdown(
+            "**What it evaluates:** Whether the agent's answer correctly addresses the user's question, "
+            "covers the important facts from the expected output, and avoids unsupported claims.\n\n"
+            "**How it is calculated:** GEval uses a chain-of-thought approach. The judge LLM receives a custom "
+            "criteria string along with the input, actual output, and expected output. It generates evaluation "
+            "steps, scores each step, and combines them into a final score (0\u20131).\n\n"
+            "**Why it matters:** The other metrics evaluate individual dimensions, but none directly ask "
+            "\"is this answer correct?\" GEval provides a holistic correctness check."
+        )
+
+    st.divider()
+
+    # --- Deterministic retrieval metrics ---
+    st.subheader("Deterministic Retrieval Metrics")
+    st.markdown(
+        "These metrics are computed directly from the retrieval results without an LLM judge. "
+        "They are defined in `eval_utils.py` and operate on the direct retrieval results."
+    )
+
+    with st.expander("Source Hit Rate"):
+        st.markdown(
+            "**What it evaluates:** The fraction of expected source documents that appear anywhere in the "
+            "retrieved results, regardless of rank.\n\n"
+            "**How it is calculated:** `|expected \u2229 retrieved| / |expected|`. Source names are compared by "
+            "filename (case-insensitive). Returns 1.0 if no expected sources are defined.\n\n"
+            "**Why it matters:** The most basic retrieval check \u2014 did the system find the right documents "
+            "at all? This is one of the two retrieval gate checks for the PASS/REVIEW verdict (threshold \u2265 0.5)."
+        )
+
+    with st.expander("Mean Reciprocal Rank (MRR)"):
+        st.markdown(
+            "**What it evaluates:** How early the first relevant result appears in the ranked retrieval list. "
+            "Scores 1.0 if the first result is relevant, 0.5 if the second is, 0.33 if the third is, and so on.\n\n"
+            "**How it is calculated:** `1 / rank` where rank is the position (1-indexed) of the first retrieved "
+            "result whose source filename matches any expected source. Returns 0.0 if no match is found.\n\n"
+            "**Why it matters:** In RAG, the top-ranked result often has the most influence on the LLM's answer. "
+            "MRR tells you whether the retrieval pipeline is placing the most important document first."
+        )
+
+    with st.expander("Precision@k"):
+        st.markdown(
+            "**What it evaluates:** The fraction of all retrieved results (top k) that come from an expected source.\n\n"
+            "**How it is calculated:** `(results from expected sources) / (total results)`. Source matching is "
+            "by filename (case-insensitive). Returns 1.0 if no expected sources are defined.\n\n"
+            "**Why it matters:** A low precision means the retrieval pipeline is returning a lot of noise alongside "
+            "the relevant documents, wasting context window space."
+        )
+
+    with st.expander("Recall@k"):
+        st.markdown(
+            "**What it evaluates:** The fraction of expected source documents that appear in the top-k "
+            "retrieved results. Measures retrieval completeness.\n\n"
+            "**How it is calculated:** `|expected \u2229 retrieved| / |expected|`. Functionally equivalent to "
+            "source hit rate in this implementation.\n\n"
+            "**Why it matters:** Reported alongside precision@k for a complete precision\u2013recall picture. "
+            "Together they reveal the trade-off between retrieving broadly and retrieving precisely."
+        )
+
+    with st.expander("NDCG@k"):
+        st.markdown(
+            "**What it evaluates:** The quality of the ranking compared to the ideal ranking where all "
+            "relevant results are at the top. A ranking-aware metric that penalises relevant results appearing "
+            "lower in the list.\n\n"
+            "**How it is calculated:** Uses binary relevance (1 if source matches expected, 0 otherwise). "
+            "DCG = sum of (relevance / log2(rank + 2)). NDCG = DCG / ideal DCG.\n\n"
+            "**Why it matters:** MRR only looks at the first relevant result. NDCG evaluates the entire ranked "
+            "list, making it the standard metric for evaluating ranked retrieval."
+        )
+
+    with st.expander("Metadata Match Ratio"):
+        st.markdown(
+            "**What it evaluates:** The fraction of retrieved results that satisfy all metadata filters defined "
+            "on the eval case (e.g. `category=policy`).\n\n"
+            "**How it is calculated:** For each retrieved result, check whether all key-value pairs in the case's "
+            "metadata filters match the result's metadata. Score = matching / total.\n\n"
+            "**Why it matters:** When a case specifies metadata filters, those are hard constraints. If results "
+            "violate the filter, the filtering logic is broken. This is the second retrieval gate check "
+            "(threshold \u2265 0.8)."
+        )
+
+    with st.expander("Backend Distribution"):
+        st.markdown(
+            "**What it evaluates:** Counts retrieved results by search backend (e.g. `fts`, `vector`). "
+            "Not a score \u2014 a diagnostic distribution.\n\n"
+            "**How it is calculated:** Groups retrieval results by the `backend` field. Returns a dict like "
+            '`{"fts": 3, "vector": 2}`.\n\n'
+            "**Why it matters:** The hybrid search agent fuses full-text and vector search. This tells you "
+            "whether both backends are actively contributing. If all results come from one backend, the "
+            "fusion mechanism may not be working as intended."
+        )
+
+    st.divider()
+
+    # --- Deterministic answer metrics ---
+    st.subheader("Deterministic Answer Metrics")
+    st.markdown(
+        "These metrics are computed from the agent's answer text and the eval case's keyword lists."
+    )
+
+    with st.expander("Required Keyword Hit Rate"):
+        st.markdown(
+            "**What it evaluates:** The fraction of required keywords (defined in the eval case) that "
+            "appear in the agent's answer.\n\n"
+            "**How it is calculated:** Keywords and answer are normalised (lowercased, accents stripped, "
+            "punctuation removed). Score = keywords found / total required keywords.\n\n"
+            "**Why it matters:** Some questions demand specific terms in the answer (e.g. a regulation "
+            "number). This is one of the keyword gate checks (threshold \u2265 0.5)."
+        )
+
+    with st.expander("Disallowed Keyword Hits"):
+        st.markdown(
+            "**What it evaluates:** The count of disallowed keywords that appear in the agent's answer.\n\n"
+            "**How it is calculated:** Same normalisation as required keywords. Counts how many disallowed "
+            "keywords appear as substrings in the normalised answer.\n\n"
+            "**Why it matters:** Some answers should avoid certain terms. Any non-zero count is a failure "
+            "signal. This is the second keyword gate check (must equal 0)."
+        )
+
+    with st.expander("Average Metric Score"):
+        st.markdown(
+            "**What it evaluates:** The mean of all DeepEval LLM-judged metric scores, expressed as a "
+            "percentage (0\u2013100).\n\n"
+            "**How it is calculated:** Collects all non-None scores from the 7 DeepEval metrics, computes "
+            "their arithmetic mean, and multiplies by 100. Rounded to 1 decimal place.\n\n"
+            "**Why it matters:** Provides a single summary number for quick comparison across cases."
+        )
+
+    st.divider()
+
+    # --- Verdict logic ---
+    st.subheader("Verdict Logic")
+    st.markdown(
+        'The final status field ("PASS" or "REVIEW") is computed by applying three independent gates. '
+        "All three must pass for a PASS verdict."
+    )
+    st.dataframe(
+        pd.DataFrame([
+            {"Gate": "metrics_ok", "Condition": "faithfulness \u2265 0.5 AND answer_relevancy \u2265 0.5"},
+            {"Gate": "retrieval_ok", "Condition": "source_hit_rate \u2265 0.5 AND metadata_match_ratio \u2265 0.8"},
+            {"Gate": "keywords_ok", "Condition": "required_keyword_hit_rate \u2265 0.5 AND disallowed_keyword_hits = 0"},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )

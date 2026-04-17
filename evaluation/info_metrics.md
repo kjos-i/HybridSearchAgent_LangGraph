@@ -2,6 +2,40 @@
 
 This document describes every metric produced by the evaluation harness. Metrics are grouped into two categories: **LLM-judged metrics** (scored by a judge model via DeepEval) and **deterministic metrics** (computed directly from retrieval results and the agent's answer).
 
+### Metrics at a Glance
+
+**LLM-Judged (DeepEval)**
+
+| Metric | Description |
+|--------|-------------|
+| [Answer Relevancy](#answer-relevancy) | Is the answer on-topic for the question? |
+| [Faithfulness](#faithfulness) | Are all claims supported by the retrieved context? |
+| [Contextual Precision](#contextual-precision) | Are relevant chunks ranked above irrelevant ones? |
+| [Contextual Recall](#contextual-recall) | Does the context cover all needed information? |
+| [Contextual Relevancy](#contextual-relevancy) | What fraction of retrieved chunks are relevant? |
+| [Hallucination](#hallucination) | Does the answer contradict the context? |
+| [Grounded Correctness (GEval)](#grounded-correctness-geval) | Is the answer correct compared to the expected output? |
+
+**Deterministic — Retrieval**
+
+| Metric | Description |
+|--------|-------------|
+| [Source Hit Rate](#source-hit-rate) | Were the expected source documents retrieved? |
+| [MRR](#mean-reciprocal-rank-mrr) | How early does the first relevant result appear? |
+| [Precision@k](#precisionk) | What fraction of retrieved results are relevant? |
+| [Recall@k](#recallk) | What fraction of expected sources were retrieved? |
+| [NDCG@k](#ndcgk-normalized-discounted-cumulative-gain) | How good is the overall ranking quality? |
+| [Metadata Match Ratio](#metadata-match-ratio) | Do retrieved results satisfy the metadata filters? |
+| [Backend Distribution](#backend-distribution) | How are results split across search backends? |
+
+**Deterministic — Answer**
+
+| Metric | Description |
+|--------|-------------|
+| [Required Keyword Hit Rate](#required-keyword-hit-rate) | Does the answer contain the required key terms? |
+| [Disallowed Keyword Hits](#disallowed-keyword-hits) | Does the answer avoid disallowed terms? |
+| [Average Metric Score](#average-metric-score) | Mean of all LLM-judged scores (summary number). |
+
 ---
 
 ## LLM-Judged Metrics (DeepEval)
