@@ -11,6 +11,7 @@ Features:
 
 # Standard library
 import json
+import re
 import sqlite3
 
 # Local imports
@@ -146,12 +147,19 @@ class FTSStore:
             list[SearchResult]: List of results with BM25 relevance scores.
         """
 
+        # Punctuation characters (apostrophes, commas, question marks, periods, etc.) are
+        # special characters in FTS5 query syntax and cause parse errors. The unicode61
+        # tokenizer already treats all punctuation as word separators, so stripping them
+        # before the query parser sees them produces identical tokens with no change in
+        # retrieval meaning.
+        sanitized = re.sub(r"[^\w\s]", " ", query)
+
         # Build FTS query based on search mode
-        fts_query = query 
+        fts_query = sanitized
         if use_phrase:
-            fts_query = f'"{query}"' 
+            fts_query = f'"{sanitized}"'
         elif use_prefix:
-            fts_query = f'{query}*'
+            fts_query = f'{sanitized}*'
         
         # Base SQL query
         sql = """
@@ -299,7 +307,7 @@ class FTSStore:
             add_results(results, fts_multi_weights["prefix"])
 
         # --- Final ranking ---        
-        # Sort based on the combined score (second item in tupele)
+        # Sort based on the combined score (second item in tuple)
         ranked_pairs = sorted(unique_dict_fts.values(), key=lambda x: x[1], reverse=True)
 
         # Return just the original objects (the first item in the list)

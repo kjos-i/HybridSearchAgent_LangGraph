@@ -1,0 +1,7 @@
+# Python 3.13.1
+deepeval==3.9.7
+langchain_core==1.2.30
+pandas==3.0.2
+pydantic==2.13.1
+python-dotenv==1.2.2
+streamlit==1.56.0

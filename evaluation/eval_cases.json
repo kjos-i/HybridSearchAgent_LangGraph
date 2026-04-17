@@ -1,0 +1,400 @@
+[
+  {
+    "id": "population_and_capital",
+    "question": "What is Norway's approximate population, and what is its capital city?",
+    "expected_answer_points": [
+      "Norway has approximately 5.5 million people.",
+      "The capital city is Oslo."
+    ],
+    "expected_sources": [
+      "norway_facts.txt",
+      "norway_facts.docx",
+      "norway_population.pdf",
+      "norway_population.docx"
+    ],
+    "required_keywords": ["5.5 million", "Oslo"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer concisely and include a short Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Core factual lookup. Answer is present in multiple documents — tests basic retrieval and aggregation across sources."
+  },
+  {
+    "id": "written_forms",
+    "question": "What are the two official written forms of the Norwegian language?",
+    "expected_answer_points": [
+      "The two written forms are Bokmål and Nynorsk.",
+      "Bokmål is used by the majority, while Nynorsk is based on regional dialects."
+    ],
+    "expected_sources": [
+      "norway_facts.txt",
+      "norway_facts.docx"
+    ],
+    "required_keywords": ["Nynorsk"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in one sentence and include an Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Tests exact factual recall. 'Nynorsk' is used as the sole required keyword to avoid special-character matching issues with 'Bokmål' in some execution environments."
+  },
+  {
+    "id": "friluftsliv_and_allemannsretten",
+    "question": "What does 'friluftsliv' mean in Norwegian culture, and what legal principle supports it?",
+    "expected_answer_points": [
+      "Friluftsliv means open-air living and reflects a deep cultural philosophy of returning to nature for spiritual and physical well-being.",
+      "The concept was popularized by playwright Henrik Ibsen in the 1850s.",
+      "Allemannsretten (the Right of Public Access) grants anyone the right to hike, camp, and forage on uncultivated land regardless of ownership."
+    ],
+    "expected_sources": [
+      "norway_culture_modern_life.docx"
+    ],
+    "required_keywords": ["open-air living", "Allemannsretten"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 2–3 sentences and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": true,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "concept",
+    "notes": "Tests cultural concept retrieval and grounding. use_phrase=true is appropriate since 'open-air living' is a specific multi-word term in the source. Allemannsretten is precise enough that its presence confirms the right chunk was retrieved."
+  },
+  {
+    "id": "midnight_sun_and_polar_night",
+    "question": "What are the Midnight Sun and Polar Night phenomena in Norway?",
+    "expected_answer_points": [
+      "North of the Arctic Circle, the sun stays above the horizon for up to 76 days during summer — this is the Midnight Sun.",
+      "In winter, the Polar Night brings complete darkness, providing ideal conditions to see the Northern Lights."
+    ],
+    "expected_sources": [
+      "norway_culture_modern_life.docx",
+      "norway_fun_facts.pdf"
+    ],
+    "required_keywords": ["Arctic Circle", "Northern Lights"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Explain both phenomena briefly in 2–3 sentences and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "concept",
+    "notes": "Improved from original: required keywords changed from the fragile prose phrase 'sun does not set' to stable, retrievable tokens ('Arctic Circle', 'Northern Lights') that are unambiguous in the source material."
+  },
+  {
+    "id": "population_distribution",
+    "question": "How is Norway's population distributed across the country?",
+    "expected_answer_points": [
+      "Over 82% of Norwegians live in urban areas.",
+      "The population is concentrated in the Oslofjord region, with Oslo as the primary hub, followed by Bergen, Trondheim, and Stavanger.",
+      "Norway has one of the lowest population densities in Europe at approximately 14 people per square kilometer."
+    ],
+    "expected_sources": [
+      "norway_population.docx",
+      "norway_population.pdf"
+    ],
+    "required_keywords": ["Bergen", "Trondheim", "Stavanger"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 2–3 sentences and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Tests multi-point geographic and statistical recall. 'Stavanger' appears only in the .docx variant, not the .pdf — its presence in the answer indicates the richer source was retrieved."
+  },
+  {
+    "id": "metadata_filtered_population_summary",
+    "question": "Using only the norway_population.pdf material, summarize Norway's population profile in 2–3 sentences.",
+    "expected_answer_points": [
+      "Norway has about 5.5 million residents.",
+      "Most people live in urban areas around Oslo, Bergen, and Trondheim.",
+      "The country has a low population density, high life expectancy, and a strong welfare system."
+    ],
+    "expected_sources": [
+      "norway_population.pdf"
+    ],
+    "required_keywords": ["5.5 million", "low population density"],
+    "disallowed_keywords": ["82%", "Stavanger", "83.2 years", "19-20%"],
+    "metadata_filters": {
+      "filename": "norway_population.pdf"
+    },
+    "answer_style": "Use 2–3 sentences and include a short Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "metadata_filtered",
+    "notes": "Explicit metadata filter test. Disallowed keywords are statistics that exist only in the .docx variant ('82%', 'Stavanger', '83.2 years', '19-20%') — their appearance would confirm the filter failed or the agent drew from the wrong source."
+  },
+  {
+    "id": "roald_amundsen",
+    "question": "What were Roald Amundsen's two most significant polar achievements?",
+    "expected_answer_points": [
+      "Amundsen led the first expedition to reach the South Pole in 1911.",
+      "He was also the first to traverse the Northwest Passage."
+    ],
+    "expected_sources": [
+      "norway_famous_norwegians.docx",
+      "norway_fun_facts.docx"
+    ],
+    "required_keywords": ["South Pole", "1911", "Northwest Passage"],
+    "disallowed_keywords": ["Nansen", "Kon-Tiki"],
+    "metadata_filters": {},
+    "answer_style": "Answer in 1–2 sentences and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Tests precise attribution to Amundsen vs other famous Norwegians. Disallowed keywords ('Nansen', 'Kon-Tiki') catch confusion with Fridtjof Nansen or Thor Heyerdahl, whose entries appear nearby in the same document."
+  },
+  {
+    "id": "constitution_1814",
+    "question": "When did Norway adopt its own constitution, and where was it drafted?",
+    "expected_answer_points": [
+      "The Norwegian constitution was adopted on May 17, 1814.",
+      "It was drafted at Eidsvoll."
+    ],
+    "expected_sources": [
+      "norway_history_expanded.docx",
+      "norway_history.docx"
+    ],
+    "required_keywords": ["1814", "Eidsvoll"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in one sentence and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "historical",
+    "notes": "Tests precise historical recall. Both history documents mention 1814; only the expanded version names Eidsvoll — a good indicator of which source was retrieved."
+  },
+  {
+    "id": "laerdal_tunnel",
+    "question": "How long is the Lærdal Tunnel, and what design feature was added to help drivers stay alert?",
+    "expected_answer_points": [
+      "The Lærdal Tunnel is 24.5 kilometers long, making it the world's longest road tunnel.",
+      "Blue-lit caverns were installed every six kilometers to simulate daylight and prevent driver fatigue and tunnel vision."
+    ],
+    "expected_sources": [
+      "norway_fun_facts.docx"
+    ],
+    "required_keywords": ["24.5 kilometers", "driver fatigue"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 1–2 sentences and include an Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": true,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Tests precise numerical and design-detail recall from a single source. use_phrase=true is appropriate because 'driver fatigue' is a specific phrase in the document that phrase-matching FTS should surface precisely."
+  },
+  {
+    "id": "preikestolen_vs_trolltunga",
+    "question": "How high is Preikestolen above the fjord, and which fjord does it overlook?",
+    "expected_answer_points": [
+      "Preikestolen rises 604 meters above the Lysefjord."
+    ],
+    "expected_sources": [
+      "norway_sites_to_visit.docx"
+    ],
+    "required_keywords": ["604 meters", "Lysefjord"],
+    "disallowed_keywords": ["700 meters", "Trolltunga", "Ringedalsvatnet"],
+    "metadata_filters": {},
+    "answer_style": "Answer in one sentence and include an Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Disambiguation test: the sites document describes Preikestolen (604 m, Lysefjord) and Trolltunga (700 m, Ringedalsvatnet) in close proximity. Disallowed keywords confirm the agent answered the correct landmark."
+  },
+  {
+    "id": "cheese_slicer_invention",
+    "question": "Who invented the cheese slicer, and in what year?",
+    "expected_answer_points": [
+      "The cheese slicer (ostehøvel) was invented by Thor Bjørklund in 1925."
+    ],
+    "expected_sources": [
+      "norway_fun_facts.docx",
+      "norway_facts.docx"
+    ],
+    "required_keywords": ["1925"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in one sentence and include an Evidence section.",
+    "retrieval": {
+      "k": 4,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Multi-source test: both fun_facts.docx and facts.docx mention the cheese slicer and the 1925 date. Tests whether precision of attribution holds across redundant sources."
+  },
+  {
+    "id": "ev_and_renewable_energy",
+    "question": "What makes Norway a global leader in both electric vehicles and renewable energy?",
+    "expected_answer_points": [
+      "Norway has the highest rate of electric vehicle ownership per capita in the world, with EVs often accounting for over 80–90% of new car sales.",
+      "Domestically, nearly 98–99% of Norway's electricity is generated from renewable sources, primarily hydropower."
+    ],
+    "expected_sources": [
+      "norway_facts.docx"
+    ],
+    "required_keywords": ["electric vehicle", "hydropower"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 2–3 sentences with specific statistics and include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "multi_point",
+    "notes": "Tests multi-point statistical recall from the economy and sustainability section. Both data points (EV rate and renewable electricity share) must appear for a full score."
+  },
+  {
+    "id": "oil_fund_vs_sustainability",
+    "question": "How does Norway reconcile being one of the world's largest oil exporters with its commitment to sustainability and long-term prosperity?",
+    "expected_answer_points": [
+      "Norway channels oil revenues into the Government Pension Fund Global (the sovereign wealth fund), one of the largest in the world.",
+      "The fund is designed to ensure intergenerational equity — wealth from finite oil reserves is preserved for future generations.",
+      "Domestically, Norway leads in renewable energy and electric vehicles, demonstrating that oil wealth and sustainability goals can coexist."
+    ],
+    "expected_sources": [
+      "norway_facts.docx",
+      "norway_culture_modern_life.docx"
+    ],
+    "required_keywords": ["sovereign wealth fund", "renewable"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 3–4 sentences synthesizing evidence from multiple documents. Include an Evidence section.",
+    "retrieval": {
+      "k": 6,
+      "vector_search_method": "mmr",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "synthesis",
+    "notes": "Cross-theme synthesis case requiring the agent to combine fiscal policy, energy, and sustainability content from at least two documents. MMR and k=6 are used to encourage retrieval diversity across those themes."
+  },
+  {
+    "id": "immigration_demographics",
+    "question": "What share of Norway's population consists of immigrants or their children, and which countries do the largest groups originate from?",
+    "expected_answer_points": [
+      "Immigrants and Norwegian-born children of immigrant parents make up approximately 19–20% of the total population.",
+      "Significant groups come from Poland and Lithuania (labor migration) and from Somalia, Syria, and Ukraine (refugee resettlement)."
+    ],
+    "expected_sources": [
+      "norway_population.docx"
+    ],
+    "required_keywords": ["Poland", "Lithuania"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 2–3 sentences with specific percentages and country names. Include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": true
+    },
+    "category": "factual",
+    "notes": "Tests multi-point demographic recall. Both the percentage and country names must appear for a complete answer. The detail is only in the .docx variant, not the .pdf."
+  },
+  {
+    "id": "troll_culture_and_geography",
+    "question": "What role do trolls play in Norwegian culture, and which geographic landmarks are named after them?",
+    "expected_answer_points": [
+      "Trolls are the most iconic figures in Norwegian mythology — described as shy, often dim-witted creatures that live in caves or forests and turn to stone in sunlight.",
+      "This legend explains rock formations such as Trolltunga (The Troll's Tongue) and Trollstigen (The Troll's Path).",
+      "Trolls appear in Norwegian art and music, including the classical works of Edvard Grieg."
+    ],
+    "expected_sources": [
+      "norway_culture_modern_life.docx",
+      "norway_sites_to_visit.docx"
+    ],
+    "required_keywords": ["Trolltunga", "Trollstigen"],
+    "disallowed_keywords": [],
+    "metadata_filters": {},
+    "answer_style": "Answer in 2–3 sentences covering both mythology and geography. Include an Evidence section.",
+    "retrieval": {
+      "k": 5,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": true,
+      "multi_fts": true
+    },
+    "category": "concept",
+    "notes": "Prefix matching test: the root 'troll' should prefix-match 'Trolltunga', 'Trollstigen', and 'trolls' across documents. Tests whether use_prefix=true surfaces the relevant chunks from both the culture and sites documents."
+  },
+  {
+    "id": "adversarial_out_of_scope",
+    "question": "What is the population of Sweden?",
+    "expected_answer_points": [
+      "The documents in this collection do not contain information about Sweden's population.",
+      "The agent should decline to answer or redirect to Norway-specific content that is available."
+    ],
+    "expected_sources": [],
+    "required_keywords": [],
+    "disallowed_keywords": ["10 million", "9 million", "11 million", "Swedish population", "Stockholm"],
+    "metadata_filters": {},
+    "answer_style": "If the documents do not contain the answer, say so explicitly rather than guessing.",
+    "retrieval": {
+      "k": 3,
+      "vector_search_method": "similarity",
+      "use_phrase": false,
+      "use_prefix": false,
+      "multi_fts": false
+    },
+    "category": "adversarial",
+    "notes": "Out-of-scope hallucination test. The documents contain no data about Sweden's population. Disallowed keywords catch plausible hallucinated figures for Sweden. multi_fts=false since there is no valid FTS match to find. A passing answer states that the information is not in the documents."
+  }
+]
