@@ -31,7 +31,18 @@ from fts_search import FTSStore
 from hybrid_search import HybridRetriever
 from pydantic_models import HybridSearchArgs
 from utils import debug_print, print_agent_graph, setup_logger
-from config import DEBUG, UPDATES, DRAW, DEBUG_PRINT, PRINT
+from config import (
+    DEBUG,
+    DRAW,
+    DEBUG_PRINT,
+    FTS_MAX_SCORE,
+    FTS_MULTI_WEIGHTS,
+    FTS_WEIGHT,
+    PRINT,
+    UPDATES,
+    VECTOR_MMR_WEIGHT,
+    VECTOR_SIMILARITY_WEIGHT,
+)
 
 # Load env from specific path
 load_dotenv()
@@ -50,13 +61,6 @@ vector_store = Chroma(
 
 # Initialize Full-Text Search (Keyword)
 fts_store = FTSStore()
-
-# --- Search Strategy Hyperparameters ---
-FTS_WEIGHT = 0.5
-VECTOR_SIMILARITY_WEIGHT = 0.5
-VECTOR_MMR_WEIGHT = 0.5
-FTS_MAX_SCORE = 20.0 # For SQLite BM25 scores
-FTS_MULTI_WEIGHTS = {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
 
 # Global retriever instance used by the tool
 retriever = HybridRetriever(

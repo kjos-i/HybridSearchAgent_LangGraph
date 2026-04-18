@@ -49,7 +49,7 @@ from hybrid_search_agent import agent, retriever  # noqa: E402
 
 async def main() -> None:
     """Load config, run all eval cases, and write the JSON and CSV reports."""
-    load_dotenv("C:/Users/kjosi/dotenv/.env")
+    load_dotenv()
 
     cases = load_cases(DATASET_PATH)
     if MAX_CASES:

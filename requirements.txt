@@ -1,0 +1,26 @@
+# Python 3.13.1
+
+# Core agent/runtime dependencies
+chromadb==1.5.7
+langchain==1.2.8
+langchain-chroma==1.1.0
+langchain-core==1.2.8
+langchain-openai==1.1.7
+langgraph==1.0.10
+pydantic==2.12.5
+python-dotenv==1.2.1
+
+# Dashboard dependencies
+pandas==3.0.1
+plotly==6.7.0
+streamlit==1.56.0
+
+# Notebook / ingestion pipeline dependencies
+langchain-community==0.4.1
+langchain-text-splitters==1.1.0
+langdetect==1.0.9
+numpy==2.4.2
+matplotlib==3.10.8
+scikit-learn==1.8.0
+docx2txt==0.9
+pypdf==6.9.2
