@@ -1,6 +1,6 @@
 """SQLite ledger for persisting evaluation results across runs.
 
-Creates and manages `eval_ledger.db` in the evaluation folder with two tables:
+Creates and manages ``eval_ledger.db`` in the evaluation folder with two tables:
   - eval_runs:    one row per evaluation run (summary-level metrics).
   - eval_cases:   one row per case per run (per-case metrics and details).
 
@@ -17,13 +17,15 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from eval_metric_registry import case_sql_columns, llm_metric_keys, run_sql_columns
+
 DB_PATH = Path(__file__).resolve().parent / "eval_ledger.db"
 
 # ---------------------------------------------------------------------------
-# Schema
+# Schema — generated from the metric registry
 # ---------------------------------------------------------------------------
 
-_CREATE_RUNS_TABLE = """
+_RUNS_FIXED_PREFIX = """\
 CREATE TABLE IF NOT EXISTS eval_runs (
     run_id              INTEGER PRIMARY KEY AUTOINCREMENT,
     run_timestamp       TEXT    NOT NULL,
@@ -33,21 +35,13 @@ CREATE TABLE IF NOT EXISTS eval_runs (
     case_count          INTEGER,
     pass_count          INTEGER,
     pass_rate           REAL,
-    avg_case_score      REAL,
-    avg_source_hit_rate REAL,
-    avg_metadata_match_ratio REAL,
-    avg_mrr             REAL,
-    avg_precision_at_k  REAL,
-    avg_recall_at_k     REAL,
-    avg_ndcg_at_k       REAL,
-    avg_latency_seconds REAL,
-    avg_retrieval_latency_seconds REAL,
-    avg_llm_latency_seconds       REAL,
-    metric_averages     TEXT
-);
-"""
+    avg_case_score      REAL,"""
 
-_CREATE_CASES_TABLE = """
+_RUNS_FIXED_SUFFIX = """\
+    metric_averages     TEXT
+);"""
+
+_CASES_FIXED_PREFIX = """\
 CREATE TABLE IF NOT EXISTS eval_cases (
     case_row_id                 INTEGER PRIMARY KEY AUTOINCREMENT,
     run_id                      INTEGER NOT NULL REFERENCES eval_runs(run_id),
@@ -55,36 +49,24 @@ CREATE TABLE IF NOT EXISTS eval_cases (
     case_id                     TEXT    NOT NULL,
     category                    TEXT    DEFAULT '',
     question                    TEXT,
-    status                      TEXT,
-    avg_metric_score            REAL,
-    source_hit_rate             REAL,
-    metadata_match_ratio        REAL,
-    mrr                         REAL,
-    precision_at_k              REAL,
-    recall_at_k                 REAL,
-    ndcg_at_k                   REAL,
-    backend_fts                 INTEGER,
-    backend_vector              INTEGER,
-    backend_hybrid              INTEGER,
-    required_keyword_hit_rate   REAL,
-    disallowed_keyword_hits     INTEGER,
-    answer_relevancy            REAL,
-    faithfulness                REAL,
-    contextual_precision        REAL,
-    contextual_recall           REAL,
-    contextual_relevancy        REAL,
-    hallucination               REAL,
-    correctness_g_eval          REAL,
-    latency_seconds             REAL,
-    retrieval_latency_seconds   REAL,
-    llm_latency_seconds         REAL,
+    status                      TEXT,"""
+
+_CASES_FIXED_SUFFIX = """\
     error_count                 INTEGER,
     answer                      TEXT,
     expected_output             TEXT,
     retrieval_config            TEXT,
     errors                      TEXT
-);
-"""
+);"""
+
+
+def _build_create_sql(prefix: str, columns: list[tuple[str, str]], suffix: str) -> str:
+    col_lines = "\n".join(f"    {name:<36s}{typ}," for name, typ in columns)
+    return f"{prefix}\n{col_lines}\n{suffix}"
+
+
+_CREATE_RUNS_TABLE = _build_create_sql(_RUNS_FIXED_PREFIX, run_sql_columns(), _RUNS_FIXED_SUFFIX)
+_CREATE_CASES_TABLE = _build_create_sql(_CASES_FIXED_PREFIX, case_sql_columns(), _CASES_FIXED_SUFFIX)
 
 
 # ---------------------------------------------------------------------------
@@ -105,11 +87,22 @@ class EvalLedger:
         with self._connect() as conn:
             conn.execute(_CREATE_RUNS_TABLE)
             conn.execute(_CREATE_CASES_TABLE)
-            # Migrate: add category column to existing databases.
+            # Auto-migrate: ensure every registry-defined column exists.
+            for col, typ in case_sql_columns():
+                try:
+                    conn.execute(f"ALTER TABLE eval_cases ADD COLUMN {col} {typ}")
+                except sqlite3.OperationalError:
+                    pass  # Column already exists
+            for col, typ in run_sql_columns():
+                try:
+                    conn.execute(f"ALTER TABLE eval_runs ADD COLUMN {col} {typ}")
+                except sqlite3.OperationalError:
+                    pass
+            # Legacy migration: category column on older databases.
             try:
                 conn.execute("ALTER TABLE eval_cases ADD COLUMN category TEXT DEFAULT ''")
             except sqlite3.OperationalError:
-                pass  # Column already exists
+                pass
 
     # ------------------------------------------------------------------
     # Public API
@@ -131,131 +124,115 @@ class EvalLedger:
         """
         summary = report.get("summary", {})
 
+        # ── Build run-level INSERT dynamically ────────────────────────
+        run_fixed_cols = [
+            "run_timestamp", "dataset_path", "judge_model", "threshold",
+            "case_count", "pass_count", "pass_rate", "avg_case_score",
+        ]
+        run_avg_cols = [col for col, _ in run_sql_columns()]
+        run_trailing_cols = ["metric_averages"]
+
+        run_cols = run_fixed_cols + run_avg_cols + run_trailing_cols
+        run_placeholders = ", ".join("?" for _ in run_cols)
+        run_col_str = ", ".join(run_cols)
+
+        run_values = (
+            report.get("generated_at"),
+            report.get("dataset_path"),
+            report.get("judge_model"),
+            report.get("threshold"),
+            summary.get("case_count"),
+            summary.get("pass_count"),
+            summary.get("pass_rate"),
+            summary.get("avg_case_score"),
+            *[summary.get(col) for col in run_avg_cols],
+            json.dumps(summary.get("metric_averages", {})),
+        )
+
         with self._connect() as conn:
             cursor = conn.execute(
-                """
-                INSERT INTO eval_runs (
-                    run_timestamp, 
-                    dataset_path, 
-                    judge_model,
-                    threshold,
-                    case_count, 
-                    pass_count, 
-                    pass_rate, 
-                    avg_case_score,
-                    avg_source_hit_rate, 
-                    avg_metadata_match_ratio,
-                    avg_mrr, 
-                    avg_precision_at_k, 
-                    avg_recall_at_k, 
-                    avg_ndcg_at_k,
-                    avg_latency_seconds, 
-                    avg_retrieval_latency_seconds, 
-                    avg_llm_latency_seconds,
-                    metric_averages
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    report.get("generated_at"),
-                    report.get("dataset_path"),
-                    report.get("judge_model"),
-                    report.get("threshold"),
-                    summary.get("case_count"),
-                    summary.get("pass_count"),
-                    summary.get("pass_rate"),
-                    summary.get("avg_case_score"),
-                    summary.get("avg_source_hit_rate"),
-                    summary.get("avg_metadata_match_ratio"),
-                    summary.get("avg_mrr"),
-                    summary.get("avg_precision_at_k"),
-                    summary.get("avg_recall_at_k"),
-                    summary.get("avg_ndcg_at_k"),
-                    summary.get("avg_latency_seconds"),
-                    summary.get("avg_retrieval_latency_seconds"),
-                    summary.get("avg_llm_latency_seconds"),
-                    json.dumps(summary.get("metric_averages", {})),
-                ),
+                f"INSERT INTO eval_runs ({run_col_str}) VALUES ({run_placeholders})",
+                run_values,
             )
             run_id: int = cursor.lastrowid  # type: ignore[assignment]
+
+            # ── Build case-level INSERT dynamically ───────────────────
+            case_fixed_cols = [
+                "run_id", "run_timestamp", "case_id", "category",
+                "question", "status",
+            ]
+            case_metric_cols = [col for col, _ in case_sql_columns()]
+            case_trailing_cols = [
+                "error_count", "answer", "expected_output",
+                "retrieval_config", "errors",
+            ]
+            case_cols = case_fixed_cols + case_metric_cols + case_trailing_cols
+            case_placeholders = ", ".join("?" for _ in case_cols)
+            case_col_str = ", ".join(case_cols)
+
+            llm_keys = llm_metric_keys()
 
             for item in report.get("results", []):
                 metrics = item.get("metrics", {})
                 kw = item.get("keyword_checks", {})
                 bd = item.get("backend_distribution", {})
 
+                metric_values = _extract_case_metric_values(item, metrics, kw, bd, llm_keys)
+
+                case_values = (
+                    run_id,
+                    report.get("generated_at"),
+                    item.get("id"),
+                    item.get("category", ""),
+                    item.get("question"),
+                    item.get("status"),
+                    *metric_values,
+                    len(item.get("errors", [])),
+                    item.get("answer"),
+                    item.get("expected_output"),
+                    json.dumps(item.get("retrieval_config", {})),
+                    json.dumps(item.get("errors", [])),
+                )
+
                 conn.execute(
-                    """
-                    INSERT INTO eval_cases (
-                        run_id,
-                        run_timestamp,
-                        case_id,
-                        category,
-                        question,
-                        status,
-                        avg_metric_score,
-                        source_hit_rate, 
-                        metadata_match_ratio, 
-                        mrr, 
-                        precision_at_k, 
-                        recall_at_k, 
-                        ndcg_at_k,
-                        backend_fts, 
-                        backend_vector, 
-                        backend_hybrid,
-                        required_keyword_hit_rate, 
-                        disallowed_keyword_hits,
-                        answer_relevancy, 
-                        faithfulness,
-                        contextual_precision, 
-                        contextual_recall, 
-                        contextual_relevancy,
-                        hallucination, 
-                        correctness_g_eval,
-                        latency_seconds, 
-                        retrieval_latency_seconds, 
-                        llm_latency_seconds,
-                        error_count, 
-                        answer, 
-                        expected_output, 
-                        retrieval_config, 
-                        errors
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        run_id,
-                        report.get("generated_at"),
-                        item.get("id"),
-                        item.get("category", ""),
-                        item.get("question"),
-                        item.get("status"),
-                        item.get("average_metric_score"),
-                        item.get("source_hit_rate"),
-                        item.get("metadata_match_ratio"),
-                        item.get("mrr"),
-                        item.get("precision_at_k"),
-                        item.get("recall_at_k"),
-                        item.get("ndcg_at_k"),
-                        bd.get("fts", 0),
-                        bd.get("vector", 0) + bd.get("vector_similarity", 0) + bd.get("vector_mmr", 0),
-                        bd.get("hybrid", 0),
-                        kw.get("required_keyword_hit_rate"),
-                        kw.get("disallowed_keyword_hits"),
-                        metrics.get("answer_relevancy", {}).get("score"),
-                        metrics.get("faithfulness", {}).get("score"),
-                        metrics.get("contextual_precision", {}).get("score"),
-                        metrics.get("contextual_recall", {}).get("score"),
-                        metrics.get("contextual_relevancy", {}).get("score"),
-                        metrics.get("hallucination", {}).get("score"),
-                        metrics.get("correctness_g_eval", {}).get("score"),
-                        item.get("latency_seconds"),
-                        item.get("retrieval_latency_seconds"),
-                        item.get("llm_latency_seconds"),
-                        len(item.get("errors", [])),
-                        item.get("answer"),
-                        item.get("expected_output"),
-                        json.dumps(item.get("retrieval_config", {})),
-                        json.dumps(item.get("errors", [])),
-                    ),
+                    f"INSERT INTO eval_cases ({case_col_str}) VALUES ({case_placeholders})",
+                    case_values,
                 )
 
         return run_id
+
+
+def _extract_case_metric_values(
+    item: dict[str, Any],
+    metrics: dict[str, Any],
+    kw: dict[str, Any],
+    bd: dict[str, Any],
+    llm_keys: list[str],
+) -> tuple[Any, ...]:
+    """Extract metric values in the same order as ``case_sql_columns()``.
+
+    Handles scalar metrics (read directly from ``item``), composite metrics
+    (exploded from ``bd`` / ``kw``), and LLM-judged metrics (nested under
+    ``metrics[key]["score"]``).
+    """
+    values: list[Any] = []
+    for col, _ in case_sql_columns():
+        if col in llm_keys:
+            values.append(metrics.get(col, {}).get("score"))
+        elif col == "backend_fts":
+            values.append(bd.get("fts", 0))
+        elif col == "backend_vector":
+            values.append(
+                bd.get("vector", 0) + bd.get("vector_similarity", 0) + bd.get("vector_mmr", 0)
+            )
+        elif col == "backend_hybrid":
+            values.append(bd.get("hybrid", 0))
+        elif col == "required_keyword_hit_rate":
+            values.append(kw.get("required_keyword_hit_rate"))
+        elif col == "disallowed_keyword_hits":
+            values.append(kw.get("disallowed_keyword_hits"))
+        elif col == "avg_judge_score":
+            values.append(item.get("avg_judge_score"))
+        else:
+            values.append(item.get(col))
+    return tuple(values)

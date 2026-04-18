@@ -34,7 +34,7 @@ This document describes every metric produced by the evaluation harness. Metrics
 |--------|-------------|
 | [Required Keyword Hit Rate](#required-keyword-hit-rate) | Does the answer contain the required key terms? |
 | [Disallowed Keyword Hits](#disallowed-keyword-hits) | Does the answer avoid disallowed terms? |
-| [Average Metric Score](#average-metric-score) | Mean of all LLM-judged scores (summary number). |
+| [Average Judge Score](#average-judge-score) | Mean of all LLM-judged scores (summary number). |
 
 ---
 
@@ -308,11 +308,11 @@ These metrics are computed from the agent's answer text and the eval case's keyw
 
 ---
 
-### Average Metric Score
+### Average Judge Score
 
 | Field | Value |
 |-------|-------|
-| **Key in report** | `average_metric_score` |
+| **Key in report** | `avg_judge_score` |
 | **Defined in** | `eval_engine.evaluate_case()` |
 
 **What it evaluates:** The mean of all DeepEval LLM-judged metric scores, expressed as a percentage (0-100).

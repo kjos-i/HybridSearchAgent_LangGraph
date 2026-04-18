@@ -8,6 +8,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from eval_metric_registry import (
+    csv_fieldnames,
+    llm_metric_keys,
+    summary_avg_pairs,
+)
 from eval_utils import safe_mean
 
 
@@ -32,23 +37,21 @@ class ReportManager:
 
         pass_count = sum(1 for item in results if item["status"] == "PASS")
 
-        return {
+        summary: dict[str, Any] = {
             "case_count": len(results),
             "pass_count": pass_count,
             "pass_rate": round(pass_count / max(len(results), 1), 3),
-            "avg_case_score": safe_mean([item["average_metric_score"] for item in results]),
-            "avg_source_hit_rate": safe_mean([item["source_hit_rate"] for item in results]),
-            "avg_metadata_match_ratio": safe_mean([item["metadata_match_ratio"] for item in results]),
-            "avg_mrr": safe_mean([item["mrr"] for item in results]),
-            "avg_precision_at_k": safe_mean([item["precision_at_k"] for item in results]),
-            "avg_recall_at_k": safe_mean([item["recall_at_k"] for item in results]),
-            "avg_ndcg_at_k": safe_mean([item["ndcg_at_k"] for item in results]),
-            "avg_latency_seconds": safe_mean([item["latency_seconds"] for item in results]),
-            "avg_retrieval_latency_seconds": safe_mean([item["retrieval_latency_seconds"] for item in results]),
-            "avg_llm_latency_seconds": safe_mean([item["llm_latency_seconds"] for item in results]),
-            "judge_model": judge_model,
-            "metric_averages": metric_averages,
+            "avg_case_score": safe_mean([item["avg_judge_score"] for item in results]),
         }
+
+        # Per-metric run-level averages — driven by the registry.
+        for avg_key, src_key in summary_avg_pairs():
+            summary[avg_key] = safe_mean([item[src_key] for item in results])
+
+        summary["judge_model"] = judge_model
+        summary["metric_averages"] = metric_averages
+
+        return summary
 
     def save_report(self, report: dict[str, Any]) -> tuple[Path, Path]:
         """Write timestamped JSON and CSV reports to the output directory."""
@@ -59,74 +62,50 @@ class ReportManager:
 
         json_path.write_text(json.dumps(report, indent=2, ensure_ascii=False), encoding="utf-8")
 
+        fieldnames = csv_fieldnames()
+        llm_keys = llm_metric_keys()
+
         with csv_path.open("w", newline="", encoding="utf-8") as handle:
-            writer = csv.DictWriter(
-                handle,
-                fieldnames=[
-                    "id",
-                    "category",
-                    "status",
-                    "avg_metric_score",
-                    "source_hit_rate",
-                    "metadata_match_ratio",
-                    "mrr",
-                    "precision_at_k",
-                    "recall_at_k",
-                    "ndcg_at_k",
-                    "backend_fts",
-                    "backend_vector",
-                    "backend_hybrid",
-                    "required_keyword_hit_rate",
-                    "disallowed_keyword_hits",
-                    "answer_relevancy",
-                    "faithfulness",
-                    "contextual_precision",
-                    "contextual_recall",
-                    "contextual_relevancy",
-                    "hallucination",
-                    "correctness_g_eval",
-                    "latency_seconds",
-                    "retrieval_latency_seconds",
-                    "llm_latency_seconds",
-                    "error_count",
-                ],
-            )
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
 
             for item in report["results"]:
                 metrics = item.get("metrics", {})
                 kw = item.get("keyword_checks", {})
                 bd = item.get("backend_distribution", {})
-                writer.writerow(
-                    {
-                        "id": item["id"],
-                        "category": item.get("category", ""),
-                        "status": item["status"],
-                        "avg_metric_score": item["average_metric_score"],
-                        "source_hit_rate": item["source_hit_rate"],
-                        "metadata_match_ratio": item["metadata_match_ratio"],
-                        "mrr": item.get("mrr"),
-                        "precision_at_k": item.get("precision_at_k"),
-                        "recall_at_k": item.get("recall_at_k"),
-                        "ndcg_at_k": item.get("ndcg_at_k"),
-                        "backend_fts": bd.get("fts", 0),
-                        "backend_vector": bd.get("vector", 0),
-                        "backend_hybrid": bd.get("hybrid", 0),
-                        "required_keyword_hit_rate": kw.get("required_keyword_hit_rate"),
-                        "disallowed_keyword_hits": kw.get("disallowed_keyword_hits"),
-                        "answer_relevancy": metrics.get("answer_relevancy", {}).get("score"),
-                        "faithfulness": metrics.get("faithfulness", {}).get("score"),
-                        "contextual_precision": metrics.get("contextual_precision", {}).get("score"),
-                        "contextual_recall": metrics.get("contextual_recall", {}).get("score"),
-                        "contextual_relevancy": metrics.get("contextual_relevancy", {}).get("score"),
-                        "hallucination": metrics.get("hallucination", {}).get("score"),
-                        "correctness_g_eval": metrics.get("correctness_g_eval", {}).get("score"),
-                        "latency_seconds": item["latency_seconds"],
-                        "retrieval_latency_seconds": item.get("retrieval_latency_seconds"),
-                        "llm_latency_seconds": item.get("llm_latency_seconds"),
-                        "error_count": len(item.get("errors", [])),
-                    }
-                )
+
+                row: dict[str, Any] = {
+                    "id": item["id"],
+                    "category": item.get("category", ""),
+                    "status": item["status"],
+                    # Scalar metrics — directly from the result dict.
+                    "avg_judge_score": item.get("avg_judge_score"),
+                    "source_hit_rate": item.get("source_hit_rate"),
+                    "metadata_match_ratio": item.get("metadata_match_ratio"),
+                    "mrr": item.get("mrr"),
+                    "precision_at_k": item.get("precision_at_k"),
+                    "recall_at_k": item.get("recall_at_k"),
+                    "ndcg_at_k": item.get("ndcg_at_k"),
+                    # Composite: backend_distribution
+                    "backend_fts": bd.get("fts", 0),
+                    "backend_vector": bd.get("vector", 0),
+                    "backend_hybrid": bd.get("hybrid", 0),
+                    # Composite: keyword_checks
+                    "required_keyword_hit_rate": kw.get("required_keyword_hit_rate"),
+                    "disallowed_keyword_hits": kw.get("disallowed_keyword_hits"),
+                    # Latency
+                    "latency_seconds": item.get("latency_seconds"),
+                    "retrieval_latency_seconds": item.get("retrieval_latency_seconds"),
+                    "llm_latency_seconds": item.get("llm_latency_seconds"),
+                    # Errors
+                    "error_count": len(item.get("errors", [])),
+                }
+
+                # LLM-judged scores — driven by the registry.
+                for key in llm_keys:
+                    row[key] = metrics.get(key, {}).get("score")
+
+                writer.writerow(row)
 
         return json_path, csv_path
 
@@ -139,15 +118,12 @@ class ReportManager:
         print(f"Cases evaluated      : {summary['case_count']}")
         print(f"Pass rate            : {summary['pass_count']}/{summary['case_count']} ({summary['pass_rate']:.1%})")
         print(f"Avg case score       : {summary['avg_case_score']}/100")
-        print(f"Avg source hit rate  : {summary['avg_source_hit_rate']}")
-        print(f"Avg metadata match   : {summary['avg_metadata_match_ratio']}")
-        print(f"Avg MRR              : {summary['avg_mrr']}")
-        print(f"Avg Precision@k      : {summary['avg_precision_at_k']}")
-        print(f"Avg Recall@k         : {summary['avg_recall_at_k']}")
-        print(f"Avg NDCG@k           : {summary['avg_ndcg_at_k']}")
-        print(f"Avg latency          : {summary['avg_latency_seconds']}s")
-        print(f"  Retrieval          : {summary['avg_retrieval_latency_seconds']}s")
-        print(f"  LLM                : {summary['avg_llm_latency_seconds']}s")
+
+        for avg_key, _ in summary_avg_pairs():
+            if avg_key in summary:
+                label = avg_key.replace("avg_", "Avg ").replace("_", " ").title()
+                print(f"{label:21s}: {summary[avg_key]}")
+
         print(f"Judge model          : {summary['judge_model']}")
         print("Metric averages      :")
         for name, score in summary["metric_averages"].items():

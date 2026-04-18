@@ -1,6 +1,16 @@
 # Evaluation Harness for HybridSearchAgent
 
-DeepEval-based evaluation harness for the hybrid retrieval agent. Runs the real LangGraph agent end-to-end, measures retrieval quality and answer quality with LLM-as-judge metrics, and persists results to a SQLite ledger with a Streamlit dashboard for browsing runs over time.
+Evaluation harness for the hybrid retrieval agent. Runs the real LangGraph agent end-to-end and scores each test case with three families of metrics: **LLM-as-judge** (via DeepEval), **deterministic retrieval quality**, and **keyword-based answer checks**. Results are persisted to a SQLite ledger with a Streamlit dashboard for browsing runs over time.
+
+The Streamlit dashboard can be used to visualize evaluation metrics stored in the SQLite ledger at any time:
+
+```bash
+python -m streamlit run eval_dashboard.py --server.port 8501
+```
+
+See [Run Instructions](#run-instructions) below for how to run the evaluation.
+
+For more in-depth coverage, see [`info_eval_engine.md`](info_eval_engine.md) (evaluation engine internals) and [`info_metrics.md`](info_metrics.md) (detailed metric definitions and interpretation).
 
 All scripts in this folder are Learning/Demo status.
 
@@ -8,11 +18,11 @@ All scripts in this folder are Learning/Demo status.
 
 1. Loads test cases from `eval_cases.json` (question, expected answers, expected sources, keywords, retrieval config).
 2. For each case, runs both the **direct retriever** (ground-truth search quality) and the **full LangGraph agent** (end-to-end answer quality).
-3. Evaluates the agent's answer against seven DeepEval LLM-as-judge metrics plus six retrieval quality metrics.
+3. Evaluates the agent's answer against seven LLM-as-judge metrics (via DeepEval), six deterministic retrieval quality metrics, and keyword-based answer checks.
 4. Assigns a **PASS / REVIEW** verdict based on combined metric, retrieval, and keyword gates.
 5. Writes timestamped JSON and CSV reports to `evaluation_results/`.
 6. Persists every run and per-case result to `eval_ledger.db` (SQLite) for cross-run comparison.
-7. Provides a Streamlit dashboard for visualizing trends, per-case scores, and latency over time.
+7. Provides a Streamlit dashboard that reads from the SQLite ledger to visualize trends, per-case scores, and latency over time.
 
 ## Folder Contents
 
@@ -25,6 +35,7 @@ All scripts in this folder are Learning/Demo status.
 | `eval_utils.py` | Utility helpers — data loading, prompt building, retrieval metric functions, keyword checks |
 | `eval_models.py` | Pydantic data models: `EvalCase` and `RetrievalSettings` |
 | `eval_config.py` | Configuration constants: judge model, threshold, paths, concurrency |
+| `eval_metric_registry.py` | Single source of truth for metric names, display labels, SQL columns, and CSV fieldnames |
 | `eval_report_manager.py` | `ReportManager` class — builds summary dicts, writes JSON and CSV reports |
 | `eval_sqlite.py` | `EvalLedger` class — SQLite persistence layer with `eval_runs` and `eval_cases` tables |
 | `eval_dashboard.py` | Streamlit dashboard for browsing and comparing evaluation runs |
@@ -49,10 +60,11 @@ All scripts in this folder are Learning/Demo status.
 
 ```
 eval_deepeval.py  (entry point)
-    ├── eval_config.py        (settings)
-    ├── eval_utils.py         (load cases, build prompts, compute retrieval metrics)
-    ├── eval_models.py        (EvalCase, RetrievalSettings)
-    └── eval_engine.py        (EvaluationEngine)
+    ├── eval_config.py            (settings)
+    ├── eval_utils.py             (load cases, build prompts, compute retrieval metrics)
+    ├── eval_models.py            (EvalCase, RetrievalSettings)
+    ├── eval_metric_registry.py   (metric names, labels, SQL columns, CSV fieldnames)
+    └── eval_engine.py            (EvaluationEngine)
             ├── run_retrieval_case()     → direct retriever call
             ├── run_agent_case()         → full LangGraph agent invocation
             ├── build_test_case()        → LLMTestCase for DeepEval
@@ -152,6 +164,7 @@ Each case defines:
     "use_prefix": false,
     "multi_fts": true
   },
+  "category": "Factual",
   "notes": "Core factual lookup case."
 }
 ```
@@ -212,12 +225,12 @@ cd HybridSearchAgent_LangGraph
 streamlit run evaluation/eval_dashboard.py
 ```
 
-Opens at [http://localhost:8501](http://localhost:8501). The dashboard shows:
+Opens at [http://localhost:8501](http://localhost:8501). The dashboard has four tabs:
 
-- **Trends across runs** — line charts comparing summary scores, DeepEval metric averages, and latency over time
-- **Selected run detail** — pass rate, metric cards, per-case results table, and bar charts
-- **Case tracker** — track any individual case's scores across runs
-- **Answer detail** — expandable sections with question, expected output, actual answer, and errors
+- **Run Summary** — top-level KPIs (pass rate, average score, latency), retrieval quality averages, a colour-coded per-case results table, grouped bar charts of metric scores, and expandable answer details for each case
+- **Deep Analysis** — radar charts comparing LLM generation vs retrieval metric balance, score distribution histograms, a correlation heatmap showing how metrics relate to each other, and a stacked latency breakdown per case
+- **Historical Trends** — line charts tracking summary scores, DeepEval metric averages, and latency across all runs over time, plus a per-case tracker to follow a single case across runs
+- **Metrics Guide** — embedded reference guide with metric explanations, score colour legend, and verdict logic
 
 ### View Ledger from CLI
 
@@ -232,10 +245,11 @@ ledger = EvalLedger()
 1. Start with `eval_config.py` to understand the tunable settings.
 2. Read `eval_models.py` for the `EvalCase` and `RetrievalSettings` schemas.
 3. Read `eval_cases.json` to see how test cases are structured.
-4. Read `eval_utils.py` for prompt building, retrieval metrics, and keyword checks.
-5. Read `eval_engine.py` to understand the full evaluation flow per case.
-6. Run `python evaluation/eval_deepeval.py` for an end-to-end evaluation.
-7. Open the Streamlit dashboard to explore results visually.
+4. Read `eval_metric_registry.py` to see how metric names, labels, and SQL columns are defined in one place.
+5. Read `eval_utils.py` for prompt building, retrieval metrics, and keyword checks.
+6. Read `eval_engine.py` to understand the full evaluation flow per case.
+7. Run `python evaluation/eval_deepeval.py` for an end-to-end evaluation.
+8. Open the Streamlit dashboard to explore results visually.
 
 ## Notes
 

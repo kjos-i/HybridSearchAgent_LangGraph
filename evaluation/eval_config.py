@@ -12,7 +12,7 @@ DATASET_PATH = Path(__file__).resolve().parent / "eval_cases.json"
 OUTPUT_DIR = BASE_DIR / "evaluation_results"
 
 # --- Judge settings ---
-JUDGE_MODEL = "gpt-4o"
+JUDGE_MODEL = "gpt-5.4-mini"
 THRESHOLD = 0.5
 
 # --- Run settings ---

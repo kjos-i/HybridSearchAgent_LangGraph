@@ -9,6 +9,7 @@ from uuid import uuid4
 
 from langchain_core.messages import HumanMessage
 
+from eval_metric_registry import llm_metric_keys
 from eval_models import EvalCase
 from eval_utils import (
     build_expected_output,
@@ -90,6 +91,10 @@ class EvaluationEngine:
                 model=self.judge_model,
             ),
         }
+
+        assert set(metrics.keys()) == set(llm_metric_keys()), (
+            f"Registry/engine metric key mismatch: {set(metrics.keys()) ^ set(llm_metric_keys())}"
+        )
 
         return metrics
 
@@ -237,7 +242,7 @@ class EvaluationEngine:
         ndcg_at_k = compute_ndcg_at_k(case, retrieval_results)
         backend_distribution = compute_backend_distribution(retrieval_results)
         keyword_checks = compute_keyword_checks(case, answer)
-        average_metric_score = round(
+        avg_judge_score = round(
             safe_mean([
                 details.get("score")
                 for details in metric_results.values()
@@ -273,7 +278,7 @@ class EvaluationEngine:
             "ndcg_at_k": ndcg_at_k,
             "backend_distribution": backend_distribution,
             "keyword_checks": keyword_checks,
-            "average_metric_score": average_metric_score,
+            "avg_judge_score": avg_judge_score,
             "metrics": metric_results,
             "status": status,
             "errors": errors,

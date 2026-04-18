@@ -205,7 +205,7 @@ Each case produces a result dict with this structure:
     "required_keyword_hit_rate": float,
     "disallowed_keyword_hits":   int
   },
-  "average_metric_score":    float,     # mean of all DeepEval scores * 100
+  "avg_judge_score":         float,     # mean of all DeepEval scores * 100
 
   // DeepEval LLM-judged metrics
   "metrics": {

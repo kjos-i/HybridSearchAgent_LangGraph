@@ -7,8 +7,11 @@ Launch from the project root (or the evaluation folder):
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 import plotly.express as px
@@ -16,49 +19,15 @@ import plotly.graph_objects as go
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
+from eval_metric_registry import llm_metric_keys, metric_labels, retrieval_metric_keys
+
 POLL_SECONDS = 10  # How often to check if new data has arrived
 
 DB_PATH = Path(__file__).resolve().parent / "eval_ledger.db"
 
-METRIC_COLUMNS = [
-    "answer_relevancy",
-    "faithfulness",
-    "contextual_precision",
-    "contextual_recall",
-    "contextual_relevancy",
-    "hallucination",
-    "correctness_g_eval",
-]
-
-RETRIEVAL_COLUMNS = [
-    "source_hit_rate",
-    "metadata_match_ratio",
-    "mrr",
-    "precision_at_k",
-    "recall_at_k",
-    "ndcg_at_k",
-]
-
-METRIC_LABELS = {
-    "answer_relevancy": "Answer Relevancy",
-    "faithfulness": "Faithfulness",
-    "contextual_precision": "Ctx Precision",
-    "contextual_recall": "Ctx Recall",
-    "contextual_relevancy": "Ctx Relevancy",
-    "hallucination": "Hallucination",
-    "correctness_g_eval": "Correctness (GEval)",
-    "source_hit_rate": "Source Hit Rate",
-    "metadata_match_ratio": "Metadata Match",
-    "mrr": "MRR",
-    "precision_at_k": "Precision@k",
-    "recall_at_k": "Recall@k",
-    "ndcg_at_k": "NDCG@k",
-    "avg_case_score": "Avg Case Score",
-    "pass_rate": "Pass Rate",
-    "avg_source_hit_rate": "Source Hit Rate",
-    "avg_mrr": "MRR",
-    "avg_precision_at_k": "Precision@k",
-}
+METRIC_COLUMNS: list[str] = llm_metric_keys()
+RETRIEVAL_COLUMNS: list[str] = retrieval_metric_keys()
+METRIC_LABELS: dict[str, str] = metric_labels()
 
 # ---------------------------------------------------------------------------
 # Custom CSS
@@ -103,6 +72,12 @@ hr {
     border-top: 1px solid #dee2e6 !important;
     margin: 1.5rem 0 !important;
 }
+
+/* White text for HTML-rendered table headers and index */
+table th {
+    color: #ffffff !important;
+    font-weight: normal !important;
+}
 </style>
 """
 
@@ -124,7 +99,8 @@ def _get_latest_timestamp() -> str | None:
         with sqlite3.connect(DB_PATH) as conn:
             result = conn.execute("SELECT MAX(run_timestamp) FROM eval_runs").fetchone()
             return result[0] if result else None
-    except Exception:
+    except sqlite3.Error:
+        logger.warning("Failed to read latest timestamp from %s", DB_PATH, exc_info=True)
         return None
 
 
@@ -160,12 +136,19 @@ def load_cases() -> pd.DataFrame:
 # Chart builders
 # ---------------------------------------------------------------------------
 
-PLOTLY_LAYOUT_DEFAULTS = dict(
+PLOTLY_LAYOUT_DEFAULTS: dict[str, object] = dict(
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-    font=dict(family="Inter, system-ui, sans-serif", size=12),
+    font=dict(family="Inter, system-ui, sans-serif", size=16),
     margin=dict(l=40, r=20, t=30, b=40),
 )
+
+
+def _hex_to_rgba(hex_color: str, alpha: float = 0.12) -> str:
+    """Convert a hex colour like ``#636EFA`` to an ``rgba(...)`` string."""
+    h = hex_color.lstrip("#")
+    r, g, b = int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)
+    return f"rgba({r},{g},{b},{alpha})"
 
 
 def build_radar_chart(df: pd.DataFrame, metric_cols: list[str], color: str = "#636EFA") -> go.Figure:
@@ -187,7 +170,7 @@ def build_radar_chart(df: pd.DataFrame, metric_cols: list[str], color: str = "#6
         r=values,
         theta=labels,
         fill="toself",
-        fillcolor=f"rgba({','.join(str(int(color.lstrip('#')[i:i+2], 16)) for i in (0, 2, 4))}, 0.12)",
+        fillcolor=_hex_to_rgba(color, alpha=0.12),
         line=dict(color=color, width=2),
         marker=dict(size=5),
         hovertemplate="%{theta}: %{r:.3f}<extra></extra>",
@@ -208,7 +191,12 @@ def build_radar_chart(df: pd.DataFrame, metric_cols: list[str], color: str = "#6
 
 
 def build_correlation_heatmap(df: pd.DataFrame, columns: list[str]) -> go.Figure:
-    """Build a correlation heatmap between the given numeric columns."""
+    """Build a correlation heatmap between the given numeric columns.
+
+    Metrics with zero variance (identical scores across all cases) produce
+    NaN correlations.  These cells show the constant value (e.g. "= 1.00")
+    so the user sees that the metric was perfect, not missing.
+    """
     available = [c for c in columns if c in df.columns]
     if len(available) < 2:
         return go.Figure()
@@ -216,23 +204,62 @@ def build_correlation_heatmap(df: pd.DataFrame, columns: list[str]) -> go.Figure
     corr = df[available].corr()
     labels = [METRIC_LABELS.get(c, c) for c in available]
 
-    fig = px.imshow(
-        corr.values,
+    # Identify zero-variance metrics and their constant values.
+    constant_metrics: dict[str, float] = {}
+    for col in available:
+        if df[col].std() == 0:
+            constant_metrics[col] = df[col].iloc[0]
+
+    # Build custom text: show the constant value for NaN cells.
+    def _cell_text(row_key: str, col_key: str, val: float) -> str:
+        if pd.isna(val):
+            # At least one of row/col has zero variance — show its constant.
+            const_key = row_key if row_key in constant_metrics else col_key
+            return f"= {constant_metrics[const_key]:.2f}"
+        return f"{val:.2f}"
+
+    text_matrix = [
+        [_cell_text(available[r], available[c], corr.iloc[r, c]) for c in range(len(available))]
+        for r in range(len(available))
+    ]
+
+    # Replace NaN with 0 so the colour scale renders a neutral fill instead of
+    # transparent/black holes.
+    corr_filled = corr.fillna(0)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=corr_filled.values,
         x=labels,
         y=labels,
-        color_continuous_scale="RdBu_r",
+        text=text_matrix,
+        texttemplate="%{text}",
+        colorscale="RdBu_r",
         zmin=-1,
         zmax=1,
-        text_auto=".2f",
-        aspect="auto",
-    )
+    ))
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
         font=dict(family="Inter, system-ui, sans-serif", size=12),
         height=480,
         margin=dict(l=20, r=20, t=20, b=20),
+        xaxis=dict(side="bottom"),
+        yaxis=dict(autorange="reversed"),
     )
+
+    if constant_metrics:
+        fig.update_layout(
+            margin=dict(l=20, r=20, t=20, b=100),
+            annotations=[dict(
+                text="= X means the metric scored X on every case (zero variance) — correlation cannot be calculated",
+                xref="paper", yref="paper",
+                x=0, y=-0.28,
+                xanchor="left",
+                showarrow=False,
+                font=dict(size=11, color="#8fa8c8"),
+            )],
+        )
+
     return fig
 
 
@@ -320,6 +347,7 @@ def build_trend_line(
     fig.update_layout(
         **PLOTLY_LAYOUT_DEFAULTS,
         xaxis_title="",
+        xaxis_tickangle=0,
         yaxis_title=y_label,
         yaxis=dict(range=y_range, gridcolor="#f0f0f0") if y_range else dict(gridcolor="#f0f0f0"),
         legend_title="",
@@ -328,35 +356,95 @@ def build_trend_line(
     return fig
 
 
+def _color_by_thresholds(val: object, thresholds: list[tuple[float, str]], *, higher_is_better: bool = True) -> str:
+    """Return a CSS color string based on threshold bands.
+
+    Parameters
+    ----------
+    thresholds
+        ``[(cutoff, css), ...]`` ordered from best to worst.  Each entry means
+        "if the value is >= cutoff (or <= cutoff when ``higher_is_better=False``),
+        use this CSS".
+    """
+    if not isinstance(val, (int, float)) or pd.isna(val):
+        return "color: #6b7280"
+    for cutoff, css in thresholds:
+        if (higher_is_better and val >= cutoff) or (not higher_is_better and val <= cutoff):
+            return css
+    return thresholds[-1][1] if thresholds else ""
+
+
+# Re-usable threshold bands
+_SCORE_BANDS: list[tuple[float, str]] = [
+    (0.8, "color: #4ade80; font-weight: 600"),
+    (0.5, "color: #fb923c; font-weight: 600"),
+    (0.0, "color: #f87171; font-weight: 600"),
+]
+_JUDGE_BANDS: list[tuple[float, str]] = [
+    (80, "color: #4ade80; font-weight: 600"),
+    (50, "color: #fb923c; font-weight: 600"),
+    (0,  "color: #f87171; font-weight: 600"),
+]
+_LATENCY_BANDS: list[tuple[float, str]] = [
+    (5,  "color: #4ade80; font-weight: 600"),
+    (10, "color: #fb923c; font-weight: 600"),
+    (99999, "color: #f87171; font-weight: 600"),
+]
+_STATUS_COLORS: dict[str, str] = {
+    "PASS": "color: #4ade80; font-weight: bold",
+    "REVIEW": "color: #f87171; font-weight: bold",
+}
+
+
+def _find_column(df: pd.DataFrame, *candidates: str) -> str | None:
+    """Return the first column name from *candidates* that exists in *df*."""
+    return next((c for c in candidates if c in df.columns), None)
+
+
 def style_case_dataframe(df: pd.DataFrame) -> pd.io.formats.style.Styler:
-    """Apply conditional color formatting to metric and retrieval columns."""
-    display_metrics = [c for c in METRIC_COLUMNS + RETRIEVAL_COLUMNS if c in df.columns]
+    """Apply conditional color formatting to metric, status, and latency columns.
 
-    def color_scores(val: object) -> str:
-        if not isinstance(val, (int, float)):
-            return ""
-        if val >= 0.8:
-            return "background-color: #d4edda; color: #155724"
-        if val >= 0.5:
-            return "background-color: #fff3cd; color: #856404"
-        return "background-color: #f8d7da; color: #721c24"
-
-    def color_status(val: object) -> str:
-        if val == "PASS":
-            return "background-color: #d4edda; color: #155724; font-weight: bold"
-        if val == "REVIEW":
-            return "background-color: #f8d7da; color: #721c24; font-weight: bold"
-        return ""
+    Works with both raw keys and label-renamed columns.
+    """
+    all_metric_keys = METRIC_COLUMNS + RETRIEVAL_COLUMNS
+    all_metric_labels = [METRIC_LABELS.get(k, k) for k in all_metric_keys]
+    score_cols = [c for c in all_metric_keys + all_metric_labels if c in df.columns]
 
     styler = df.style
-    styler = styler.map(color_scores, subset=[c for c in display_metrics if c in df.columns])
+
+    # 0-1 score columns
+    if score_cols:
+        styler = styler.map(
+            lambda v: _color_by_thresholds(v, _SCORE_BANDS),
+            subset=score_cols,
+        )
+        styler = styler.format({c: "{:.2f}" for c in score_cols}, na_rep="", precision=2)
+
+    # Status column
     if "status" in df.columns:
-        styler = styler.map(color_status, subset=["status"])
-    styler = styler.format({c: "{:.3f}" for c in display_metrics if c in df.columns})
-    if "latency_seconds" in df.columns:
-        styler = styler.format({"latency_seconds": "{:.2f}s"})
-    if "avg_metric_score" in df.columns:
-        styler = styler.format({"avg_metric_score": "{:.1f}"})
+        styler = styler.map(lambda v: _STATUS_COLORS.get(v, ""), subset=["status"])
+
+    # Avg judge score (0-100 scale)
+    judge_col = _find_column(df, "avg_judge_score", METRIC_LABELS.get("avg_judge_score", ""))
+    if judge_col:
+        styler = styler.map(lambda v: _color_by_thresholds(v, _JUDGE_BANDS), subset=[judge_col])
+        styler = styler.format({judge_col: "{:.1f}"}, na_rep="")
+
+    # Latency (lower is better)
+    latency_col = _find_column(df, "latency_seconds", METRIC_LABELS.get("latency_seconds", ""))
+    if latency_col:
+        styler = styler.map(
+            lambda v: _color_by_thresholds(v, _LATENCY_BANDS, higher_is_better=False),
+            subset=[latency_col],
+        )
+        styler = styler.format({latency_col: "{:.2f}s"}, na_rep="")
+
+    styler = styler.set_table_styles([
+        {"selector": "th", "props": [("color", "#ffffff"), ("font-size", "0.8rem")]},
+        {"selector": "thead th", "props": [("border-bottom", "1px solid #4a5568")]},
+        {"selector": "td", "props": [("font-size", "0.85rem")]},
+    ])
+    styler = styler.hide(axis="index")
 
     return styler
 
@@ -556,14 +644,21 @@ with tab_summary:
                     run_cases = run_cases[run_cases["category"].isin(selected_categories)]
 
         display_cols = [
-            "case_id", "category", "status", "avg_metric_score",
+            "case_id", "category", "status", "avg_judge_score",
             *METRIC_COLUMNS,
             *RETRIEVAL_COLUMNS,
             "latency_seconds",
         ]
         available_display = [c for c in display_cols if c in run_cases.columns]
-        styled_df = style_case_dataframe(run_cases[available_display].set_index("case_id"))
-        st.dataframe(styled_df, use_container_width=True, height=min(len(run_cases) * 38 + 40, 600))
+        display_df = run_cases[available_display].reset_index(drop=True)
+        display_df = display_df.rename(columns=METRIC_LABELS)
+        styled_df = style_case_dataframe(display_df)
+        table_height = min(len(run_cases) * 38 + 40, 600)
+        table_html = styled_df.to_html()
+        st.markdown(
+            f'<div style="overflow:auto; max-height:{table_height}px;">{table_html}</div>',
+            unsafe_allow_html=True,
+        )
 
         # --- Metric bar chart ---
         st.subheader("Metric Scores by Case")
@@ -582,7 +677,7 @@ with tab_summary:
         for _, case_row in run_cases.iterrows():
             is_pass = case_row["status"] == "PASS"
             icon = "\u2705" if is_pass else "\u26a0\ufe0f"
-            score_str = f"{case_row['avg_metric_score']:.0f}/100" if pd.notna(case_row.get("avg_metric_score")) else ""
+            score_str = f"{case_row['avg_judge_score']:.0f}/100" if pd.notna(case_row.get("avg_judge_score")) else ""
 
             with st.expander(f"{icon}  **{case_row['case_id']}**  \u2014  {case_row['status']}  ({score_str})"):
                 detail_left, detail_right = st.columns([3, 1])
@@ -598,7 +693,7 @@ with tab_summary:
                         st.warning(case_row["answer"])
                 with detail_right:
                     st.markdown("**Quick stats**")
-                    st.metric("Score", f"{case_row['avg_metric_score']:.0f}" if pd.notna(case_row.get("avg_metric_score")) else "N/A")
+                    st.metric("Score", f"{case_row['avg_judge_score']:.0f}" if pd.notna(case_row.get("avg_judge_score")) else "N/A")
                     st.metric("Latency", f"{case_row['latency_seconds']:.1f}s" if pd.notna(case_row.get("latency_seconds")) else "N/A")
                     st.metric("Source hit", f"{case_row['source_hit_rate']:.0%}" if pd.notna(case_row.get("source_hit_rate")) else "N/A")
 
@@ -860,10 +955,33 @@ with tab_guide:
             {"Metric": "Backend Distribution", "Key": "backend_distribution", "Description": "How are results split across search backends?"},
             {"Metric": "Required Keyword Hit Rate", "Key": "required_keyword_hit_rate", "Description": "Does the answer contain the required key terms?"},
             {"Metric": "Disallowed Keyword Hits", "Key": "disallowed_keyword_hits", "Description": "Does the answer avoid disallowed terms?"},
-            {"Metric": "Average Metric Score", "Key": "avg_metric_score", "Description": "Mean of all LLM-judged scores (0\u2013100)."},
+            {"Metric": "Average Judge Score", "Key": "avg_judge_score", "Description": "Mean of all LLM-judged scores (0\u2013100)."},
         ]),
         hide_index=True,
         use_container_width=True,
+    )
+
+    st.divider()
+
+    # --- Score colour legend ---
+    st.subheader("Score Colours")
+    st.markdown(
+        "The per-case results table uses coloured text to highlight score quality at a glance.\n\n"
+        "**LLM-judged & retrieval metrics** (0\u20131 scale)\n\n"
+        "| Colour | Range | Meaning |\n"
+        "|--------|-------|---------|\n"
+        "| :green[green] | \u2265 0.8 | Good — the metric is comfortably above the pass threshold |\n"
+        "| :orange[orange] | \u2265 0.5 | Borderline — at or near the verdict gate threshold |\n"
+        "| :red[red] | < 0.5 | Poor — below the pass threshold, likely triggers REVIEW |\n\n"
+        "**Avg Judge Score** (0\u2013100 scale)\n\n"
+        "Same logic scaled to 100: green \u2265 80, orange \u2265 50, red < 50.\n\n"
+        "**Latency**\n\n"
+        "| Colour | Range | Meaning |\n"
+        "|--------|-------|---------|\n"
+        "| :green[green] | \u2264 5 s | Fast |\n"
+        "| :orange[orange] | \u2264 10 s | Moderate |\n"
+        "| :red[red] | > 10 s | Slow — may indicate retrieval or LLM bottlenecks |\n\n"
+        "**Status column:** PASS is green, REVIEW is red."
     )
 
     st.divider()
@@ -1063,7 +1181,7 @@ with tab_guide:
             "signal. This is the second keyword gate check (must equal 0)."
         )
 
-    with st.expander("Average Metric Score"):
+    with st.expander("Average Judge Score"):
         st.markdown(
             "**What it evaluates:** The mean of all DeepEval LLM-judged metric scores, expressed as a "
             "percentage (0\u2013100).\n\n"

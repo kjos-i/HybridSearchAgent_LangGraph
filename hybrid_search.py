@@ -116,8 +116,8 @@ class HybridRetriever:
             fts_multi_weights = fts_multi_weights or {"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}
 
             fts_results = self.fts.search_multi(
+                query_keywords=[query],
                 query_phrases=[query] if use_phrase else [],
-                query_keywords=[query] if not use_phrase else [],
                 query_prefixes=[query] if use_prefix else [],
                 k=k,
                 metadata_filters=metadata_filters,
