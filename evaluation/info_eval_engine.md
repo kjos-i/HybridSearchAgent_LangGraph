@@ -16,6 +16,7 @@ EvalCase
 ├── question: str                    # the user question to evaluate
 ├── expected_answer_points: list[str]# gold-standard answer fragments
 ├── expected_sources: list[str]      # documents that should be retrieved
+├── expected_chunks: list[str]       # representative snippets for chunk-level metrics
 ├── required_keywords: list[str]     # must appear in the answer
 ├── disallowed_keywords: list[str]   # must NOT appear in the answer
 ├── metadata_filters: dict           # e.g. {"category": "policy"}
@@ -124,12 +125,22 @@ Below is the full pipeline that runs for **each** `EvalCase` inside the `evaluat
   │ (computed from direct retrieval_results│
   │  — not the agent's context)            │
   │                                        │
-  │ ├── source_hit_rate                    │
-  │ ├── metadata_match_ratio               │
+  │ Source-level (filename relevance):     │
+  │ ├── hit_at_k                           │
   │ ├── MRR (Mean Reciprocal Rank)         │
   │ ├── Precision@k                        │
   │ ├── Recall@k                           │
-  │ ├── NDCG@k                             │
+  │ └── NDCG@k                             │
+  │                                        │
+  │ Chunk-level (snippet-substring match): │
+  │ ├── chunk_hit_at_k                     │
+  │ ├── chunk_mrr                          │
+  │ ├── chunk_precision_at_k               │
+  │ ├── chunk_recall_at_k                  │
+  │ └── chunk_ndcg_at_k                    │
+  │                                        │
+  │ Always-on:                             │
+  │ ├── metadata_match_ratio               │
   │ ├── backend_distribution               │
   │ └── keyword_checks                     │
   └───────────────────┬────────────────────┘
@@ -145,7 +156,7 @@ Below is the full pipeline that runs for **each** `EvalCase` inside the `evaluat
   │   answer_relevancy >= 0.5              │
   │                                        │
   │ retrieval_ok:                           │
-  │   source_hit_rate >= 0.5 AND           │
+  │   hit_at_k == 1.0 AND                  │
   │   metadata_match_ratio >= 0.8          │
   │                                        │
   │ keywords_ok:                           │
@@ -192,12 +203,20 @@ Each case produces a result dict with this structure:
   "retrieval_preview":       [ { source, chunk_id, backend, score, snippet }, ... ],  // top 5
 
   // Retrieval quality scores (from direct retrieval, not agent context)
-  "source_hit_rate":         float,     # fraction of expected sources found
-  "metadata_match_ratio":    float,     # fraction of results matching filters
+  // Source-level — relevance by filename (expected_sources)
+  "hit_at_k":                float,     # 1.0 if any expected source in top-k, else 0.0
   "mrr":                     float,     # 1/rank of first relevant result
   "precision_at_k":          float,     # relevant results / total results
   "recall_at_k":             float,     # found sources / expected sources
   "ndcg_at_k":               float,     # normalized ranking quality
+  // Chunk-level — relevance by snippet substring (expected_chunks)
+  "chunk_hit_at_k":          float,     # 1.0 if any expected snippet matched any chunk
+  "chunk_mrr":               float,     # 1/rank of first chunk containing a snippet
+  "chunk_precision_at_k":    float,     # fraction of chunks matching any snippet
+  "chunk_recall_at_k":       float,     # fraction of expected snippets covered
+  "chunk_ndcg_at_k":         float,     # normalized ranking quality on chunk labels
+  // Always-on
+  "metadata_match_ratio":    float,     # fraction of results matching filters
   "backend_distribution":    { "fts": N, "vector": N, ... },
 
   // Answer quality
@@ -231,7 +250,7 @@ Each case produces a result dict with this structure:
 
 The engine runs retrieval **twice** per case:
 
-1. **Direct retrieval** (`run_retrieval_case`) — calls the retriever directly. Used to compute ground-truth retrieval quality metrics (source_hit_rate, MRR, Precision@k, etc.). This isolates search quality from the agent's LLM reasoning.
+1. **Direct retrieval** (`run_retrieval_case`) — calls the retriever directly. Used to compute ground-truth retrieval quality metrics (hit_at_k, MRR, Precision@k, etc.). This isolates search quality from the agent's LLM reasoning.
 
 2. **Agent retrieval** (`run_agent_case`) — extracted from ToolMessage objects in the agent's message history. This is what the agent actually saw and reasoned over. Used as `retrieval_context` in the DeepEval LLMTestCase so that faithfulness, contextual precision, and recall reflect the agent's real context window.
 
@@ -244,3 +263,31 @@ If the agent made no tool calls, direct retrieval results are used as a fallback
 ### Metrics are rebuilt per call
 
 `build_metrics()` creates fresh metric instances every time to ensure clean state across concurrent runs — DeepEval metric objects store results internally, so reusing them across cases would cause data contamination.
+
+### Metric group toggles
+
+The engine accepts an `enabled_groups` set (sourced from
+`eval_config.ENABLED_METRIC_GROUPS`) that controls which metric families are
+computed:
+
+- `"judge"` — DeepEval LLM-judged metrics. When disabled, `build_metrics()`
+  returns `{}` so the judge model is never called, `metrics` in the case
+  result is empty, and the `metrics_ok` verdict gate is treated as satisfied.
+- `"source"` — source-level retrieval quality (hit_at_k, mrr, precision_at_k,
+  recall_at_k, ndcg_at_k). Relevance is decided by filename match against
+  `expected_sources`. When disabled, these fields are stored as `None` and
+  the `hit_at_k` sub-condition in the retrieval gate is skipped.
+- `"chunk"` — chunk-level retrieval quality (chunk_hit_at_k, chunk_mrr,
+  chunk_precision_at_k, chunk_recall_at_k, chunk_ndcg_at_k). Relevance is
+  decided by normalized-substring match of any `expected_chunks` snippet
+  against the chunk's `page_content`. When disabled, these fields are stored
+  as `None`. Cases with an empty `expected_chunks` list score 1.0 (nothing
+  to check) rather than `None` so they do not poison run-level averages.
+
+Always-on: `metadata_match_ratio`, `backend_distribution`, `keyword_checks`,
+latency, and `avg_judge_score` (derived from whatever judge metrics ran —
+`None` when no judge metrics ran).
+
+The enabled groups are persisted in the summary (`enabled_groups` key),
+stored in the `eval_runs.enabled_groups` SQLite column as a JSON array, and
+surfaced in the dashboard sidebar.

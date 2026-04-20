@@ -19,7 +19,13 @@ import plotly.graph_objects as go
 import streamlit as st
 from streamlit_autorefresh import st_autorefresh
 
-from eval_metric_registry import llm_metric_keys, metric_labels, retrieval_metric_keys
+from eval_metric_registry import (
+    chunk_metric_keys,
+    llm_metric_keys,
+    metric_fmts,
+    metric_labels,
+    retrieval_metric_keys,
+)
 
 POLL_SECONDS = 10  # How often to check if new data has arrived
 
@@ -27,7 +33,14 @@ DB_PATH = Path(__file__).resolve().parent / "eval_ledger.db"
 
 METRIC_COLUMNS: list[str] = llm_metric_keys()
 RETRIEVAL_COLUMNS: list[str] = retrieval_metric_keys()
+CHUNK_COLUMNS: list[str] = chunk_metric_keys()
 METRIC_LABELS: dict[str, str] = metric_labels()
+METRIC_FMTS: dict[str, str] = metric_fmts()
+
+
+def _fmt_for(col_name: str, default: str = ".3f") -> str:
+    """Resolve a column's display format from the registry, falling back to ``default``."""
+    return METRIC_FMTS.get(col_name, default)
 
 # ---------------------------------------------------------------------------
 # Custom CSS
@@ -43,12 +56,29 @@ div[data-testid="stMetric"] {
     padding: 12px 16px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
-div[data-testid="stMetric"] label {
+div[data-testid="stMetric"] label,
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
     font-size: 0.78rem !important;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: #8fa8c8;
+    line-height: 1.2 !important;
+}
+/* Labels are forced to 2 lines by an explicit "\n" inserted in the label
+   string itself (see _kpi_label). pre-line preserves that newline.
+   word-break:normal stops Streamlit from splitting a long token (e.g.
+   "Precision@k") mid-word when the card is narrow, which would produce a
+   third line. If a token genuinely doesn't fit, we let it overflow rather
+   than breaking it. */
+div[data-testid="stMetric"] [data-testid="stMetricLabel"],
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] > *,
+div[data-testid="stMetric"] [data-testid="stMetricLabel"] p {
+    white-space: pre-line !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
 }
 div[data-testid="stMetric"] [data-testid="stMetricValue"] {
     font-size: 1.5rem !important;
@@ -267,7 +297,6 @@ def build_grouped_bar(
     df: pd.DataFrame,
     id_col: str,
     metric_cols: list[str],
-    threshold: float | None = 0.5,
 ) -> go.Figure:
     """Build a grouped bar chart of metric scores per case."""
     bar_data = df.set_index(id_col)[metric_cols]
@@ -290,12 +319,6 @@ def build_grouped_bar(
         legend_title="Metric",
         height=400,
     )
-    if threshold is not None:
-        fig.add_hline(
-            y=threshold, line_dash="dash", line_color="#adb5bd", opacity=0.6,
-            annotation_text=f"threshold ({threshold})", annotation_position="top left",
-            annotation_font_color="#6c757d", annotation_font_size=11,
-        )
     return fig
 
 
@@ -406,8 +429,12 @@ def style_case_dataframe(df: pd.DataFrame) -> pd.io.formats.style.Styler:
 
     Works with both raw keys and label-renamed columns.
     """
-    all_metric_keys = METRIC_COLUMNS + RETRIEVAL_COLUMNS
+    all_metric_keys = METRIC_COLUMNS + RETRIEVAL_COLUMNS + CHUNK_COLUMNS
     all_metric_labels = [METRIC_LABELS.get(k, k) for k in all_metric_keys]
+    # Map label columns back to their underlying metric keys so we can still
+    # resolve the registry-declared fmt when the caller has label-renamed the
+    # dataframe.
+    _label_to_key = {METRIC_LABELS.get(k, k): k for k in all_metric_keys}
     score_cols = [c for c in all_metric_keys + all_metric_labels if c in df.columns]
 
     styler = df.style
@@ -418,7 +445,10 @@ def style_case_dataframe(df: pd.DataFrame) -> pd.io.formats.style.Styler:
             lambda v: _color_by_thresholds(v, _SCORE_BANDS),
             subset=score_cols,
         )
-        styler = styler.format({c: "{:.2f}" for c in score_cols}, na_rep="", precision=2)
+        styler = styler.format(
+            {c: f"{{:{_fmt_for(_label_to_key.get(c, c))}}}" for c in score_cols},
+            na_rep=NOT_EVALUATED_LABEL,
+        )
 
     # Status column
     if "status" in df.columns:
@@ -428,19 +458,19 @@ def style_case_dataframe(df: pd.DataFrame) -> pd.io.formats.style.Styler:
     judge_col = _find_column(df, "avg_judge_score", METRIC_LABELS.get("avg_judge_score", ""))
     if judge_col:
         styler = styler.map(lambda v: _color_by_thresholds(v, _JUDGE_BANDS), subset=[judge_col])
-        styler = styler.format({judge_col: "{:.1f}"}, na_rep="")
+        styler = styler.format({judge_col: f"{{:{_fmt_for('avg_judge_score')}}}"}, na_rep=NOT_EVALUATED_LABEL)
 
-    # Latency (lower is better)
+    # Latency (lower is better) — always-on, so NaN only on legacy rows.
     latency_col = _find_column(df, "latency_seconds", METRIC_LABELS.get("latency_seconds", ""))
     if latency_col:
         styler = styler.map(
             lambda v: _color_by_thresholds(v, _LATENCY_BANDS, higher_is_better=False),
             subset=[latency_col],
         )
-        styler = styler.format({latency_col: "{:.2f}s"}, na_rep="")
+        styler = styler.format({latency_col: f"{{:{_fmt_for('latency_seconds')}}}s"}, na_rep="")
 
     styler = styler.set_table_styles([
-        {"selector": "th", "props": [("color", "#ffffff"), ("font-size", "0.8rem")]},
+        {"selector": "th", "props": [("font-size", "0.8rem")]},
         {"selector": "thead th", "props": [("border-bottom", "1px solid #4a5568")]},
         {"selector": "td", "props": [("font-size", "0.85rem")]},
     ])
@@ -449,9 +479,31 @@ def style_case_dataframe(df: pd.DataFrame) -> pd.io.formats.style.Styler:
     return styler
 
 
-def compute_delta(current: float, previous: float | None, fmt: str = ".1f") -> str | None:
-    """Compute a display-ready delta string, or None if no previous run."""
-    if previous is None:
+NOT_EVALUATED_LABEL = "Not evaluated"
+
+
+def format_metric_value(value: object, fmt: str = ".3f", suffix: str = "") -> str:
+    """Format a metric value for display.
+
+    Returns ``"Not evaluated"`` when the value is ``None`` / ``NaN`` — which
+    is how the harness signals that a toggleable metric group (judge, source,
+    chunk) was turned off in ``eval_config.ENABLED_METRIC_GROUPS`` for the
+    run being displayed.
+    """
+    if value is None:
+        return NOT_EVALUATED_LABEL
+    if isinstance(value, float) and pd.isna(value):
+        return NOT_EVALUATED_LABEL
+    return f"{value:{fmt}}{suffix}"
+
+
+def compute_delta(current: float | None, previous: float | None, fmt: str = ".1f") -> str | None:
+    """Compute a display-ready delta string, or None when it can't be computed."""
+    if current is None or previous is None:
+        return None
+    if isinstance(current, float) and pd.isna(current):
+        return None
+    if isinstance(previous, float) and pd.isna(previous):
         return None
     diff = current - previous
     return f"{diff:+{fmt}}"
@@ -534,9 +586,30 @@ with st.sidebar:
 
     st.divider()
     st.caption("Run details")
+
+    def _parse_gate_thresholds(row: Any) -> dict[str, float] | None:
+        """Return the gate_thresholds dict for a run row, or None if missing/invalid."""
+        if row is None or "gate_thresholds" not in row:
+            return None
+        raw = row["gate_thresholds"]
+        if raw is None:
+            return None
+        if isinstance(raw, dict):
+            return raw
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except (TypeError, ValueError):
+            return None
+
+    # gate_thresholds is still parsed — the drift banner and the Metrics Guide
+    # Verdict Logic table both rely on it, even though the sidebar doesn't show
+    # it (active thresholds are documented in the Metrics Guide tab instead).
+    gate_thresholds = _parse_gate_thresholds(run_row)
+    prev_gate_thresholds = _parse_gate_thresholds(prev_row) if prev_row is not None else None
+
     st.markdown(
         f"**Judge:** {run_row['judge_model']}  \n"
-        f"**Threshold:** {run_row['threshold']}  \n"
         f"**Cases:** {int(run_row['case_count'])}  \n"
         f"**Time:** {run_row['run_timestamp']:%Y-%m-%d %H:%M}"
     )
@@ -550,6 +623,24 @@ run_cases = cases_df[cases_df["run_id"] == selected_run_id].copy()
 
 st.title("Evaluation Dashboard")
 st.caption("HybridSearchAgent \u2014 DeepEval and deterministic evaluation results")
+
+# Threshold drift warning: gate thresholds should stay stable across runs so
+# trend comparisons remain apples-to-apples. Flag any change since the previous run.
+if (
+    gate_thresholds is not None
+    and prev_gate_thresholds is not None
+    and gate_thresholds != prev_gate_thresholds
+):
+    drift = [
+        f"**{key}**: {prev_gate_thresholds.get(key)} \u2192 {gate_thresholds.get(key)}"
+        for key in sorted(set(gate_thresholds) | set(prev_gate_thresholds))
+        if gate_thresholds.get(key) != prev_gate_thresholds.get(key)
+    ]
+    st.warning(
+        "\u26a0\ufe0f Gate thresholds changed since the previous run \u2014 trend "
+        "comparisons against earlier runs may not be apples-to-apples.\n\n"
+        + "\n\n".join(f"- {line}" for line in drift)
+    )
 
 
 # ===================================================================
@@ -571,58 +662,96 @@ tab_summary, tab_analysis, tab_trends, tab_guide = st.tabs([
 with tab_summary:
     st.caption("Summary of metrics for the selected run.")
 
+    def _kpi_label(col_name: str, fallback: str) -> str:
+        """Pull the display label from the registry and force it onto 2 lines.
+
+        Every KPI card's label renders on exactly 2 lines so all cards in a row
+        share the same height. Labels with a space break at the last space;
+        single-word labels get a non-breaking space appended as a filler
+        second line. Works together with ``white-space: pre-line`` in the
+        custom CSS, which honors the embedded ``\\n``.
+        """
+        raw = METRIC_LABELS.get(col_name, fallback)
+        if " " in raw:
+            idx = raw.rfind(" ")
+            return raw[:idx] + "\n" + raw[idx + 1:]
+        return raw + "\n\u00a0"
+
     # --- KPI row 1: core performance ---
     st.subheader("Average Performance")
     c1, c2, c3, c4, c5 = st.columns(5)
     _prev_pass = _prev_val(prev_row, "pass_rate")
     c1.metric(
-        "Pass rate",
+        _kpi_label("pass_rate", "Pass Rate"),
         f"{run_row['pass_rate']:.0%}",
         delta=compute_delta(run_row["pass_rate"] * 100, _prev_pass * 100 if _prev_pass is not None else None),
         delta_color="normal",
     )
+    _case_fmt = _fmt_for("avg_case_score")
     c2.metric(
-        "Avg score",
-        f"{run_row['avg_case_score']:.1f}",
-        delta=compute_delta(run_row["avg_case_score"], _prev_val(prev_row, "avg_case_score")),
+        _kpi_label("avg_case_score", "Avg Judge Score"),
+        format_metric_value(run_row["avg_case_score"], _case_fmt),
+        delta=compute_delta(run_row["avg_case_score"], _prev_val(prev_row, "avg_case_score"), fmt=_case_fmt),
         delta_color="normal",
     )
+    _lat_fmt = _fmt_for("avg_latency_seconds")
     c3.metric(
-        "Avg latency",
-        f"{run_row['avg_latency_seconds']:.1f}s",
-        delta=compute_delta(run_row["avg_latency_seconds"], _prev_val(prev_row, "avg_latency_seconds"), fmt=".1f"),
+        _kpi_label("avg_latency_seconds", "Latency"),
+        format_metric_value(run_row["avg_latency_seconds"], _lat_fmt, "s"),
+        delta=compute_delta(run_row["avg_latency_seconds"], _prev_val(prev_row, "avg_latency_seconds"), fmt=_lat_fmt),
         delta_color="inverse",
     )
+    _ret_lat_fmt = _fmt_for("avg_retrieval_latency_seconds")
     c4.metric(
-        "Retrieval",
-        f"{run_row['avg_retrieval_latency_seconds']:.2f}s",
-        delta=compute_delta(run_row["avg_retrieval_latency_seconds"], _prev_val(prev_row, "avg_retrieval_latency_seconds"), fmt=".2f"),
+        _kpi_label("avg_retrieval_latency_seconds", "Retrieval Latency"),
+        format_metric_value(run_row["avg_retrieval_latency_seconds"], _ret_lat_fmt, "s"),
+        delta=compute_delta(run_row["avg_retrieval_latency_seconds"], _prev_val(prev_row, "avg_retrieval_latency_seconds"), fmt=_ret_lat_fmt),
         delta_color="inverse",
     )
+    _llm_lat_fmt = _fmt_for("avg_llm_latency_seconds")
     c5.metric(
-        "LLM",
-        f"{run_row['avg_llm_latency_seconds']:.1f}s",
-        delta=compute_delta(run_row["avg_llm_latency_seconds"], _prev_val(prev_row, "avg_llm_latency_seconds"), fmt=".1f"),
+        _kpi_label("avg_llm_latency_seconds", "LLM Latency"),
+        format_metric_value(run_row["avg_llm_latency_seconds"], _llm_lat_fmt, "s"),
+        delta=compute_delta(run_row["avg_llm_latency_seconds"], _prev_val(prev_row, "avg_llm_latency_seconds"), fmt=_llm_lat_fmt),
         delta_color="inverse",
     )
 
     # --- KPI row 2: retrieval quality ---
-    st.subheader("Average Retrieval Quality")
-    r1, r2, r3 = st.columns(3)
-    r4, r5, r6 = st.columns(3)
+    st.subheader("Average Source Retrieval Quality")
+    r1, r2, r3, r4, r5, r6 = st.columns(6)
     retrieval_kpis = [
-        ("Source Hit Rate", "avg_source_hit_rate", r1),
-        ("Metadata Match", "avg_metadata_match_ratio", r2),
-        ("MRR", "avg_mrr", r3),
-        ("Precision@k", "avg_precision_at_k", r4),
-        ("Recall@k", "avg_recall_at_k", r5),
-        ("NDCG@k", "avg_ndcg_at_k", r6),
+        ("avg_hit_at_k", r1),
+        ("avg_metadata_match_ratio", r2),
+        ("avg_mrr", r3),
+        ("avg_precision_at_k", r4),
+        ("avg_recall_at_k", r5),
+        ("avg_ndcg_at_k", r6),
     ]
-    for label, col_name, col_widget in retrieval_kpis:
+    for col_name, col_widget in retrieval_kpis:
+        _rfmt = _fmt_for(col_name)
         col_widget.metric(
-            label,
-            f"{run_row[col_name]:.3f}",
-            delta=compute_delta(run_row[col_name], _prev_val(prev_row, col_name), fmt=".3f"),
+            _kpi_label(col_name, col_name),
+            format_metric_value(run_row.get(col_name), _rfmt),
+            delta=compute_delta(run_row.get(col_name), _prev_val(prev_row, col_name), fmt=_rfmt),
+            delta_color="normal",
+        )
+
+    # --- KPI row 3: chunk retrieval quality ---
+    st.subheader("Average Chunk Retrieval Quality")
+    k1, k2, k3, k4, k5 = st.columns(5)
+    chunk_kpis = [
+        ("avg_chunk_hit_at_k", k1),
+        ("avg_chunk_mrr", k2),
+        ("avg_chunk_precision_at_k", k3),
+        ("avg_chunk_recall_at_k", k4),
+        ("avg_chunk_ndcg_at_k", k5),
+    ]
+    for col_name, col_widget in chunk_kpis:
+        _cfmt = _fmt_for(col_name)
+        col_widget.metric(
+            _kpi_label(col_name, col_name),
+            format_metric_value(run_row.get(col_name), _cfmt),
+            delta=compute_delta(run_row.get(col_name), _prev_val(prev_row, col_name), fmt=_cfmt),
             delta_color="normal",
         )
 
@@ -633,20 +762,11 @@ with tab_summary:
         st.warning("No case-level data for this run.")
     else:
         st.subheader("Per-case Results")
-        if "category" in run_cases.columns:
-            categories = sorted(run_cases["category"].dropna().unique())
-            if categories:
-                selected_categories = st.multiselect(
-                    "Filter by category",
-                    options=categories,
-                )
-                if selected_categories:
-                    run_cases = run_cases[run_cases["category"].isin(selected_categories)]
-
         display_cols = [
             "case_id", "category", "status", "avg_judge_score",
             *METRIC_COLUMNS,
             *RETRIEVAL_COLUMNS,
+            *CHUNK_COLUMNS,
             "latency_seconds",
         ]
         available_display = [c for c in display_cols if c in run_cases.columns]
@@ -654,18 +774,29 @@ with tab_summary:
         display_df = display_df.rename(columns=METRIC_LABELS)
         styled_df = style_case_dataframe(display_df)
         table_height = min(len(run_cases) * 38 + 40, 600)
-        table_html = styled_df.to_html()
-        st.markdown(
-            f'<div style="overflow:auto; max-height:{table_height}px;">{table_html}</div>',
-            unsafe_allow_html=True,
+        _col1 = METRIC_LABELS.get("case_id", "case_id")
+        st.dataframe(
+            styled_df,
+            height=table_height,
+            use_container_width=True,
+            column_config={
+                _col1: st.column_config.Column(pinned=True),
+            },
         )
 
         # --- Metric bar chart ---
         st.subheader("Metric Scores by Case")
         metric_display = [c for c in METRIC_COLUMNS if c in run_cases.columns]
         if metric_display:
+            all_case_ids = run_cases["case_id"].tolist()
+            selected_cases = st.multiselect(
+                "Filter cases",
+                options=all_case_ids,
+                default=all_case_ids,
+            )
+            bar_df = run_cases[run_cases["case_id"].isin(selected_cases)] if selected_cases else run_cases
             st.plotly_chart(
-                build_grouped_bar(run_cases, "case_id", metric_display),
+                build_grouped_bar(bar_df, "case_id", metric_display),
                 key="bar_summary",
                 use_container_width=True,
             )
@@ -677,7 +808,11 @@ with tab_summary:
         for _, case_row in run_cases.iterrows():
             is_pass = case_row["status"] == "PASS"
             icon = "\u2705" if is_pass else "\u26a0\ufe0f"
-            score_str = f"{case_row['avg_judge_score']:.0f}/100" if pd.notna(case_row.get("avg_judge_score")) else ""
+            score_str = (
+                f"{case_row['avg_judge_score']:{_fmt_for('avg_judge_score')}}/100"
+                if pd.notna(case_row.get("avg_judge_score"))
+                else NOT_EVALUATED_LABEL
+            )
 
             with st.expander(f"{icon}  **{case_row['case_id']}**  \u2014  {case_row['status']}  ({score_str})"):
                 detail_left, detail_right = st.columns([3, 1])
@@ -693,9 +828,14 @@ with tab_summary:
                         st.warning(case_row["answer"])
                 with detail_right:
                     st.markdown("**Quick stats**")
-                    st.metric("Score", f"{case_row['avg_judge_score']:.0f}" if pd.notna(case_row.get("avg_judge_score")) else "N/A")
-                    st.metric("Latency", f"{case_row['latency_seconds']:.1f}s" if pd.notna(case_row.get("latency_seconds")) else "N/A")
-                    st.metric("Source hit", f"{case_row['source_hit_rate']:.0%}" if pd.notna(case_row.get("source_hit_rate")) else "N/A")
+                    st.metric("Score", format_metric_value(case_row.get("avg_judge_score"), _fmt_for("avg_judge_score")))
+                    st.metric("Latency", format_metric_value(case_row.get("latency_seconds"), _fmt_for("latency_seconds"), "s"))
+                    hit = case_row.get("hit_at_k")
+                    if hit is None or pd.isna(hit):
+                        hit_display = NOT_EVALUATED_LABEL
+                    else:
+                        hit_display = "Yes" if hit == 1.0 else "No"
+                    st.metric("Hit@k", hit_display)
 
                 if case_row.get("errors") and case_row["errors"] != "[]":
                     st.error(f"Errors: {case_row['errors']}")
@@ -714,29 +854,65 @@ with tab_analysis:
     else:
         available_metrics = [c for c in METRIC_COLUMNS if c in run_cases.columns]
         available_retrieval = [c for c in RETRIEVAL_COLUMNS if c in run_cases.columns]
+        available_chunk = [c for c in CHUNK_COLUMNS if c in run_cases.columns]
+        # Hallucination is "lower = better"; excluded from radar + correlation
+        # where it would mix with higher-is-better metrics on the same axis.
+        radar_metrics = [c for c in available_metrics if c != "hallucination"]
+        correlation_metrics = [c for c in available_metrics if c != "hallucination"]
 
-        # --- Radar charts side by side ---
+        # --- Radar charts: 2 on first row, 1 on second row ---
         st.subheader("Metric Balance")
         col_radar_llm, col_radar_ret = st.columns(2)
 
         with col_radar_llm:
             st.markdown("**LLM Generation Metrics**")
-            st.caption("Average scores across all cases \u2014 identifies weak spots in answer quality.")
-            if available_metrics:
-                st.plotly_chart(build_radar_chart(run_cases, available_metrics, color="#636EFA"), key="radar_llm", use_container_width=True)
+            st.caption("Average scores across all cases \u2014 identifies weak spots in answer quality. Hallucination is shown separately below.")
+            if radar_metrics:
+                st.plotly_chart(build_radar_chart(run_cases, radar_metrics, color="#636EFA"), key="radar_llm", use_container_width=True)
 
         with col_radar_ret:
-            st.markdown("**Retrieval Metrics**")
-            st.caption("Average scores across all cases \u2014 identifies weak spots in search quality.")
+            st.markdown("**Source Retrieval Metrics**")
+            st.caption("Source-file level \u2014 highlights weak spots in which documents the retriever picks.")
             if available_retrieval:
                 st.plotly_chart(build_radar_chart(run_cases, available_retrieval, color="#00CC96"), key="radar_retrieval", use_container_width=True)
+
+        # Second row: chunk radar on the left, empty column on the right so the
+        # chart keeps the same width and padding as the row above.
+        col_radar_chunk, _col_radar_spacer = st.columns(2)
+        with col_radar_chunk:
+            st.markdown("**Chunk Retrieval Metrics**")
+            st.caption("Chunk level \u2014 highlights whether the *right passages* were retrieved, not just the right files.")
+            if available_chunk:
+                st.plotly_chart(build_radar_chart(run_cases, available_chunk, color="#AB63FA"), key="radar_chunk", use_container_width=True)
+            else:
+                st.info("No chunk metrics available \u2014 set `expected_chunks` in test cases and enable the `chunk` group.")
+
+        # --- Hallucination (standalone, lower = better) ---
+        if "hallucination" in run_cases.columns:
+            hallu_mean = run_cases["hallucination"].dropna().mean()
+            if pd.notna(hallu_mean):
+                threshold_val = gate_thresholds.get("judge_threshold", 0.5) if gate_thresholds else 0.5
+                if hallu_mean <= threshold_val / 2:
+                    hallu_color, hallu_label = "#00CC96", "low"
+                elif hallu_mean <= threshold_val:
+                    hallu_color, hallu_label = "#F4B400", "moderate"
+                else:
+                    hallu_color, hallu_label = "#EF553B", "high"
+                col_hallu, _col_hallu_spacer = st.columns([1, 3])
+                with col_hallu:
+                    st.markdown("**Hallucination** &nbsp; <span style='color:#888;font-size:0.85em'>(lower = better)</span>", unsafe_allow_html=True)
+                    st.markdown(
+                        f"<div style='font-size:2.2em;font-weight:600;color:{hallu_color};line-height:1.1'>{hallu_mean:.2f}</div>"
+                        f"<div style='color:{hallu_color};font-size:0.9em'>{hallu_label} \u2014 threshold {threshold_val:.2f}</div>",
+                        unsafe_allow_html=True,
+                    )
 
         st.divider()
 
         # --- Score distribution ---
         st.subheader("Score Distribution")
         st.caption("Select a metric to see how scores spread across cases.")
-        all_available = available_metrics + available_retrieval
+        all_available = available_metrics + available_retrieval + available_chunk
         if all_available:
             selected_dist_metric = st.selectbox(
                 "Metric",
@@ -763,8 +939,9 @@ with tab_analysis:
 
         # --- Metric correlations ---
         st.subheader("Metric Correlations")
-        st.caption("Pearson correlation \u2014 does retrieval quality drive answer quality?")
-        all_numeric = available_metrics + available_retrieval
+        st.caption("Pearson correlation \u2014 does retrieval quality drive answer quality? Hallucination is excluded (lower = better, would invert the sign).")
+        _CORR_EXCLUDE = {"hit_at_k", "chunk_hit_at_k"}
+        all_numeric = [c for c in correlation_metrics + available_retrieval + available_chunk if c not in _CORR_EXCLUDE]
         if len(all_numeric) >= 2:
             st.plotly_chart(build_correlation_heatmap(run_cases, all_numeric), key="heatmap", use_container_width=True)
 
@@ -795,7 +972,7 @@ with tab_trends:
         st.subheader("Summary Scores Over Time")
         summary_trend_cols = [
             "avg_case_score", "pass_rate",
-            "avg_source_hit_rate", "avg_mrr", "avg_precision_at_k",
+            "avg_hit_at_k", "avg_mrr", "avg_precision_at_k",
         ]
         available_summary = [c for c in summary_trend_cols if c in trend_df.columns]
         if available_summary:
@@ -868,25 +1045,34 @@ with tab_trends:
         case_history = cases_df[cases_df["case_id"] == selected_case].sort_values("run_timestamp")
 
         if len(case_history) >= 2:
-            col_case_llm, col_case_ret = st.columns(2)
-            with col_case_llm:
-                st.markdown("**LLM Metrics**")
-                metric_history_cols = [c for c in METRIC_COLUMNS if c in case_history.columns]
-                if metric_history_cols:
-                    st.plotly_chart(
-                        build_trend_line(case_history, "run_timestamp", metric_history_cols, y_range=[0, 1.05]),
-                        key="case_metric_trend",
-                        use_container_width=True,
-                    )
-            with col_case_ret:
-                st.markdown("**Retrieval Metrics**")
-                retrieval_history_cols = [c for c in RETRIEVAL_COLUMNS if c in case_history.columns]
-                if retrieval_history_cols:
-                    st.plotly_chart(
-                        build_trend_line(case_history, "run_timestamp", retrieval_history_cols, y_range=[0, 1.05]),
-                        key="case_retrieval_trend",
-                        use_container_width=True,
-                    )
+            st.markdown("**LLM Metrics**")
+            metric_history_cols = [c for c in METRIC_COLUMNS if c in case_history.columns]
+            if metric_history_cols:
+                st.plotly_chart(
+                    build_trend_line(case_history, "run_timestamp", metric_history_cols, y_range=[0, 1.05]),
+                    key="case_metric_trend",
+                    use_container_width=True,
+                )
+
+            st.markdown("**Source Retrieval Metrics**")
+            retrieval_history_cols = [c for c in RETRIEVAL_COLUMNS if c in case_history.columns]
+            if retrieval_history_cols:
+                st.plotly_chart(
+                    build_trend_line(case_history, "run_timestamp", retrieval_history_cols, y_range=[0, 1.05]),
+                    key="case_retrieval_trend",
+                    use_container_width=True,
+                )
+
+            st.markdown("**Chunk Retrieval Metrics**")
+            chunk_history_cols = [c for c in CHUNK_COLUMNS if c in case_history.columns]
+            if chunk_history_cols:
+                st.plotly_chart(
+                    build_trend_line(case_history, "run_timestamp", chunk_history_cols, y_range=[0, 1.05]),
+                    key="case_chunk_trend",
+                    use_container_width=True,
+                )
+            else:
+                st.caption("No chunk metrics recorded for this case.")
         else:
             st.info("This case has only been evaluated in one run so far.")
 
@@ -903,7 +1089,7 @@ with tab_guide:
     st.subheader("Dashboard Tabs")
 
     st.markdown(
-        "**Run Summary** — Top-level KPIs (pass rate, average score, latency), "
+        "**Run Summary** — Top-level KPIs (pass rate, avg judge score, latency), "
         "retrieval quality averages, a colour-coded per-case results table, "
         "grouped bar charts of metric scores, and expandable answer details for each case."
     )
@@ -928,7 +1114,7 @@ with tab_guide:
     # --- Metrics at a glance ---
     st.subheader("Metrics at a Glance")
 
-    st.markdown("**LLM-Judged Metrics** — scored by a judge model via DeepEval")
+    st.markdown("**LLM-Judged (DeepEval)**")
     st.dataframe(
         pd.DataFrame([
             {"Metric": "Answer Relevancy", "Key": "answer_relevancy", "Description": "Is the answer on-topic for the question?"},
@@ -937,25 +1123,66 @@ with tab_guide:
             {"Metric": "Contextual Recall", "Key": "contextual_recall", "Description": "Does the context cover all needed information?"},
             {"Metric": "Contextual Relevancy", "Key": "contextual_relevancy", "Description": "What fraction of retrieved chunks are relevant?"},
             {"Metric": "Hallucination", "Key": "hallucination", "Description": "Does the answer contradict the context?"},
-            {"Metric": "Correctness (GEval)", "Key": "correctness_g_eval", "Description": "Is the answer correct compared to the expected output?"},
+            {"Metric": "Grounded Correctness (GEval)", "Key": "correctness_g_eval", "Description": "Is the answer correct compared to the expected output?"},
         ]),
         hide_index=True,
         use_container_width=True,
     )
 
-    st.markdown("**Deterministic Metrics** — computed directly without an LLM judge")
+    st.markdown("**Deterministic \u2014 Source-level Retrieval** (relevance by filename)")
     st.dataframe(
         pd.DataFrame([
-            {"Metric": "Source Hit Rate", "Key": "source_hit_rate", "Description": "Were the expected source documents retrieved?"},
+            {"Metric": "Hit@k", "Key": "hit_at_k", "Description": "Did at least one expected source appear in the top-k?"},
             {"Metric": "MRR", "Key": "mrr", "Description": "How early does the first relevant result appear?"},
             {"Metric": "Precision@k", "Key": "precision_at_k", "Description": "What fraction of retrieved results are relevant?"},
             {"Metric": "Recall@k", "Key": "recall_at_k", "Description": "What fraction of expected sources were retrieved?"},
             {"Metric": "NDCG@k", "Key": "ndcg_at_k", "Description": "How good is the overall ranking quality?"},
-            {"Metric": "Metadata Match", "Key": "metadata_match_ratio", "Description": "Do retrieved results satisfy the metadata filters?"},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("**Deterministic \u2014 Chunk-level Retrieval** (relevance by snippet substring match)")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Chunk Hit@k", "Key": "chunk_hit_at_k", "Description": "Did at least one expected snippet appear in any retrieved chunk?"},
+            {"Metric": "Chunk MRR", "Key": "chunk_mrr", "Description": "How early does the first snippet-matching chunk appear?"},
+            {"Metric": "Chunk Precision@k", "Key": "chunk_precision_at_k", "Description": "What fraction of retrieved chunks contain any expected snippet?"},
+            {"Metric": "Chunk Recall@k", "Key": "chunk_recall_at_k", "Description": "What fraction of expected snippets were found in a retrieved chunk?"},
+            {"Metric": "Chunk NDCG@k", "Key": "chunk_ndcg_at_k", "Description": "How good is the chunk ranking under snippet-level relevance?"},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("**Deterministic \u2014 Other**")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Metadata Match Ratio", "Key": "metadata_match_ratio", "Description": "Do retrieved results satisfy the metadata filters?"},
             {"Metric": "Backend Distribution", "Key": "backend_distribution", "Description": "How are results split across search backends?"},
             {"Metric": "Required Keyword Hit Rate", "Key": "required_keyword_hit_rate", "Description": "Does the answer contain the required key terms?"},
             {"Metric": "Disallowed Keyword Hits", "Key": "disallowed_keyword_hits", "Description": "Does the answer avoid disallowed terms?"},
-            {"Metric": "Average Judge Score", "Key": "avg_judge_score", "Description": "Mean of all LLM-judged scores (0\u2013100)."},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("**Latency**")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Latency", "Key": "latency_seconds", "Description": "Total wall-clock time for the agent to answer a case."},
+            {"Metric": "Retrieval Latency", "Key": "retrieval_latency_seconds", "Description": "Time spent in the direct retriever call."},
+            {"Metric": "LLM Latency", "Key": "llm_latency_seconds", "Description": "Estimated LLM generation time (total \u2212 retrieval)."},
+        ]),
+        hide_index=True,
+        use_container_width=True,
+    )
+
+    st.markdown("**Summary**")
+    st.dataframe(
+        pd.DataFrame([
+            {"Metric": "Pass Rate", "Key": "pass_rate", "Description": "Fraction of cases with a PASS verdict (run-level)."},
+            {"Metric": "Average Judge Score", "Key": "avg_judge_score", "Description": "Mean of all LLM-judged scores, expressed as 0\u2013100 (per case and run)."},
         ]),
         hide_index=True,
         use_container_width=True,
@@ -1075,21 +1302,22 @@ with tab_guide:
 
     st.divider()
 
-    # --- Deterministic retrieval metrics ---
-    st.subheader("Deterministic Retrieval Metrics")
+    # --- Deterministic retrieval metrics (source-level) ---
+    st.subheader("Deterministic Retrieval Metrics (Source-level)")
     st.markdown(
-        "These metrics are computed directly from the retrieval results without an LLM judge. "
-        "They are defined in `eval_utils.py` and operate on the direct retrieval results."
+        "Source-level retrieval metrics decide relevance at the filename level \u2014 any chunk whose "
+        "source filename is in `expected_sources` counts as relevant. Defined in `eval_metrics.py` and "
+        "computed from the direct retrieval results."
     )
 
-    with st.expander("Source Hit Rate"):
+    with st.expander("Hit@k"):
         st.markdown(
-            "**What it evaluates:** The fraction of expected source documents that appear anywhere in the "
-            "retrieved results, regardless of rank.\n\n"
-            "**How it is calculated:** `|expected \u2229 retrieved| / |expected|`. Source names are compared by "
-            "filename (case-insensitive). Returns 1.0 if no expected sources are defined.\n\n"
-            "**Why it matters:** The most basic retrieval check \u2014 did the system find the right documents "
-            "at all? This is one of the two retrieval gate checks for the PASS/REVIEW verdict (threshold \u2265 0.5)."
+            "**What it evaluates:** Binary — did at least one expected source appear anywhere in the "
+            "top-k retrieved results?\n\n"
+            "**How it is calculated:** `1.0 if expected \u2229 retrieved else 0.0`. Source names are compared "
+            "by filename (case-insensitive). Returns 1.0 if no expected sources are defined.\n\n"
+            "**Why it matters:** The most basic retrieval health check \u2014 did the system find *anything* "
+            "right? This is one of the two retrieval gate checks for the PASS/REVIEW verdict (must equal 1.0)."
         )
 
     with st.expander("Mean Reciprocal Rank (MRR)"):
@@ -1115,8 +1343,8 @@ with tab_guide:
         st.markdown(
             "**What it evaluates:** The fraction of expected source documents that appear in the top-k "
             "retrieved results. Measures retrieval completeness.\n\n"
-            "**How it is calculated:** `|expected \u2229 retrieved| / |expected|`. Functionally equivalent to "
-            "source hit rate in this implementation.\n\n"
+            "**How it is calculated:** `|expected \u2229 retrieved| / |expected|`. Where hit@k tells you "
+            "*whether* anything relevant was found, recall@k tells you *how much* of the expected set was found.\n\n"
             "**Why it matters:** Reported alongside precision@k for a complete precision\u2013recall picture. "
             "Together they reveal the trade-off between retrieving broadly and retrieving precisely."
         )
@@ -1131,6 +1359,79 @@ with tab_guide:
             "**Why it matters:** MRR only looks at the first relevant result. NDCG evaluates the entire ranked "
             "list, making it the standard metric for evaluating ranked retrieval."
         )
+
+    st.divider()
+
+    # --- Chunk-level retrieval metrics ---
+    st.subheader("Chunk-level Retrieval Metrics")
+    st.markdown(
+        "These mirror the source-level metrics but apply snippet-substring matching: a chunk is relevant "
+        "when any snippet from the case's `expected_chunks` appears (normalized) in the chunk's `page_content`. "
+        "Cases with an empty `expected_chunks` list score 1.0. Catches pipelines that find the right documents "
+        "but rank the wrong chunk within them."
+    )
+
+    with st.expander("Chunk Hit@k"):
+        st.markdown(
+            "**What it evaluates:** Binary \u2014 did any retrieved chunk contain any expected snippet?\n\n"
+            "**How it is calculated:** `1.0 if any(snippet in chunk.page_content for snippet in expected_chunks "
+            "for chunk in results) else 0.0`. Both sides are normalized before comparison.\n\n"
+            "**Why it matters:** Catches cases where the right *file* is retrieved but the actual "
+            "answer-containing chunk is missed \u2014 a failure mode source-level Hit@k cannot detect."
+        )
+
+    with st.expander("Chunk MRR"):
+        st.markdown(
+            "**What it evaluates:** The reciprocal rank of the first retrieved chunk containing any expected "
+            "snippet. Measures how early the right *passage* appears, not just the right file.\n\n"
+            "**How it is calculated:** Iterate retrieved chunks in rank order; return `1 / rank` (1-indexed) "
+            "for the first chunk whose normalized page_content contains any normalized expected snippet. "
+            "Returns 0.0 if no chunk matches.\n\n"
+            "**Why it matters:** Reveals whether the chunk ranker places the relevant passage near the top or "
+            "buries it behind less relevant chunks from the same file."
+        )
+
+    with st.expander("Chunk Precision@k"):
+        st.markdown(
+            "**What it evaluates:** The fraction of retrieved chunks containing at least one expected snippet "
+            "\u2014 how much of the context window is being spent on useful passages.\n\n"
+            "**How it is calculated:** `(chunks matching any snippet) / (total retrieved chunks)`. Returns 1.0 "
+            "if `expected_chunks` is empty.\n\n"
+            "**Why it matters:** High source-level precision but low chunk-level precision means you are "
+            "retrieving the right files but wasting slots on unhelpful sections within them."
+        )
+
+    with st.expander("Chunk Recall@k"):
+        st.markdown(
+            "**What it evaluates:** The fraction of expected snippets that appear in at least one retrieved "
+            "chunk \u2014 coverage of the known-good passages.\n\n"
+            "**How it is calculated:** `|{snippet : snippet \u2208 some retrieved chunk}| / |expected_chunks|`. "
+            "Unlike source-level recall, this tracks distinct *passages*, so two expected passages from the "
+            "same file count separately.\n\n"
+            "**Why it matters:** A case can retrieve the right file but miss multiple required passages. "
+            "Chunk recall surfaces that \u2014 source-level recall would read 1.0 despite the gap."
+        )
+
+    with st.expander("Chunk NDCG@k"):
+        st.markdown(
+            "**What it evaluates:** Ranking quality when each chunk gets a binary relevance label of 1 if it "
+            "contains any expected snippet, else 0.\n\n"
+            "**How it is calculated:** Build a binary relevance list by snippet-substring check per chunk. "
+            "Apply DCG/IDCG: DCG = sum(rel_i / log2(rank_i + 2)); NDCG = DCG / IDCG. Returns 1.0 if "
+            "`expected_chunks` is empty.\n\n"
+            "**Why it matters:** The chunk-level counterpart to NDCG@k \u2014 evaluates whether relevant "
+            "*passages* are ranked before irrelevant ones, independent of file-level grouping."
+        )
+
+    st.divider()
+
+    # --- Deterministic — Other metrics ---
+    st.subheader("Deterministic \u2014 Other Metrics")
+    st.markdown(
+        "Metrics that don't fit the source/chunk retrieval axis. Some inspect metadata or backend "
+        "bookkeeping on the retrieval side; others check the agent's answer text against keyword lists. "
+        "Defined in `eval_metrics.py`."
+    )
 
     with st.expander("Metadata Match Ratio"):
         st.markdown(
@@ -1154,14 +1455,6 @@ with tab_guide:
             "fusion mechanism may not be working as intended."
         )
 
-    st.divider()
-
-    # --- Deterministic answer metrics ---
-    st.subheader("Deterministic Answer Metrics")
-    st.markdown(
-        "These metrics are computed from the agent's answer text and the eval case's keyword lists."
-    )
-
     with st.expander("Required Keyword Hit Rate"):
         st.markdown(
             "**What it evaluates:** The fraction of required keywords (defined in the eval case) that "
@@ -1181,28 +1474,89 @@ with tab_guide:
             "signal. This is the second keyword gate check (must equal 0)."
         )
 
+    st.divider()
+
+    # --- Latency metrics ---
+    st.subheader("Latency Metrics")
+    st.markdown(
+        "Always-on wall-clock timings captured during each case run. No pass threshold \u2014 they exist to "
+        "surface performance regressions alongside quality metrics."
+    )
+
+    with st.expander("Latency"):
+        st.markdown(
+            "**What it evaluates:** Total wall-clock time, in seconds, for the agent to produce an answer for "
+            "a single case. Covers the full graph invocation from input to final answer.\n\n"
+            "**How it is calculated:** Measured around the agent invocation with `time.perf_counter()` before "
+            "and after; the delta is recorded.\n\n"
+            "**Why it matters:** End-to-end latency is what a user experiences. Spikes often point to "
+            "over-retrieval or slow tool calls, and the run-level average helps catch regressions after prompt "
+            "or model changes."
+        )
+
+    with st.expander("Retrieval Latency"):
+        st.markdown(
+            "**What it evaluates:** Time spent inside the direct retriever call \u2014 the hybrid search step "
+            "that fetches candidate chunks from the index.\n\n"
+            "**How it is calculated:** The retriever is invoked directly (outside of the full graph) and timed "
+            "with `time.perf_counter()`. Best-effort estimate.\n\n"
+            "**Why it matters:** Isolating retrieval cost from LLM cost makes it obvious which side of the "
+            "pipeline is slow. A spike here usually points to index issues, large `k`, or slow backend fusion."
+        )
+
+    with st.expander("LLM Latency"):
+        st.markdown(
+            "**What it evaluates:** Estimated time the generation step took, derived as "
+            "`latency_seconds \u2212 retrieval_latency_seconds`.\n\n"
+            "**How it is calculated:** Subtraction of the two timings, clamped to \u2265 0.\n\n"
+            "**Why it matters:** When total latency grows, this tells you whether retrieval or the LLM call is "
+            "responsible \u2014 which determines whether to tune the index or switch generation models."
+        )
+
+    st.divider()
+
+    # --- Summary metrics ---
+    st.subheader("Summary Metrics")
+
+    with st.expander("Pass Rate"):
+        st.markdown(
+            "**What it evaluates:** The fraction of cases in a run whose final status is `PASS`. Run-level "
+            "rollup \u2014 there is no per-case equivalent (each case has a boolean-like status instead).\n\n"
+            "**How it is calculated:** `pass_count / case_count`, rounded to 3 decimals. See Verdict Logic "
+            "below for how each case's status is determined.\n\n"
+            "**Why it matters:** The headline health number for a run. Compresses the three verdict gates "
+            "(metrics, retrieval, keywords) into a single score to track across commits or configuration changes."
+        )
+
     with st.expander("Average Judge Score"):
         st.markdown(
             "**What it evaluates:** The mean of all DeepEval LLM-judged metric scores, expressed as a "
-            "percentage (0\u2013100).\n\n"
+            "percentage (0\u2013100). Derived, not independently measured.\n\n"
             "**How it is calculated:** Collects all non-None scores from the 7 DeepEval metrics, computes "
-            "their arithmetic mean, and multiplies by 100. Rounded to 1 decimal place.\n\n"
-            "**Why it matters:** Provides a single summary number for quick comparison across cases."
+            "their arithmetic mean, and multiplies by 100. Rounded to 1 decimal place. Returns `None` when the "
+            "`judge` metric group is disabled. The run-level value is the mean of each case's per-case average.\n\n"
+            "**Why it matters:** A single summary number for quick comparison across cases. Useful for "
+            "spotting overall quality trends without inspecting each metric individually."
         )
 
     st.divider()
 
     # --- Verdict logic ---
     st.subheader("Verdict Logic")
+    _gt = gate_thresholds or {}
+    _judge_t = _gt.get("judge_threshold", 0.5)
+    _meta_t = _gt.get("metadata_match_threshold", 0.8)
+    _kw_t = _gt.get("required_keyword_threshold", 0.5)
     st.markdown(
         'The final status field ("PASS" or "REVIEW") is computed by applying three independent gates. '
-        "All three must pass for a PASS verdict."
+        "All three must pass for a PASS verdict. Threshold values shown below reflect the selected run's "
+        "configured gate thresholds."
     )
     st.dataframe(
         pd.DataFrame([
-            {"Gate": "metrics_ok", "Condition": "faithfulness \u2265 0.5 AND answer_relevancy \u2265 0.5"},
-            {"Gate": "retrieval_ok", "Condition": "source_hit_rate \u2265 0.5 AND metadata_match_ratio \u2265 0.8"},
-            {"Gate": "keywords_ok", "Condition": "required_keyword_hit_rate \u2265 0.5 AND disallowed_keyword_hits = 0"},
+            {"Gate": "metrics_ok", "Condition": f"faithfulness \u2265 {_judge_t} AND answer_relevancy \u2265 {_judge_t}"},
+            {"Gate": "retrieval_ok", "Condition": f"hit_at_k = 1.0 AND metadata_match_ratio \u2265 {_meta_t}"},
+            {"Gate": "keywords_ok", "Condition": f"required_keyword_hit_rate \u2265 {_kw_t} AND disallowed_keyword_hits = 0"},
         ]),
         hide_index=True,
         use_container_width=True,

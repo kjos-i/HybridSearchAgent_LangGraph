@@ -10,19 +10,26 @@ from uuid import uuid4
 from langchain_core.messages import HumanMessage
 
 from eval_metric_registry import llm_metric_keys
-from eval_models import EvalCase
-from eval_utils import (
-    build_expected_output,
-    build_gold_context,
-    build_retrieval_context,
+from eval_metrics import (
     compute_backend_distribution,
+    compute_chunk_hit_at_k,
+    compute_chunk_mrr,
+    compute_chunk_ndcg_at_k,
+    compute_chunk_precision_at_k,
+    compute_chunk_recall_at_k,
+    compute_hit_at_k,
     compute_keyword_checks,
     compute_metadata_match_ratio,
     compute_mrr,
     compute_ndcg_at_k,
     compute_precision_at_k,
     compute_recall_at_k,
-    compute_source_hit_rate,
+)
+from eval_models import EvalCase
+from eval_utils import (
+    build_expected_output,
+    build_gold_context,
+    build_retrieval_context,
     extract_agent_retrieval_results,
     extract_message_text,
     make_prompt,
@@ -57,18 +64,40 @@ class EvaluationEngine:
         retriever: Any,
         judge_model: str,
         threshold: float,
+        metadata_match_threshold: float = 0.8,
+        required_keyword_threshold: float = 0.5,
+        enabled_groups: set[str] | None = None,
     ) -> None:
         self.agent = agent
         self.retriever = retriever
         self.judge_model = judge_model
         self.threshold = threshold
+        self.metadata_match_threshold = metadata_match_threshold
+        self.required_keyword_threshold = required_keyword_threshold
+        self.enabled_groups: set[str] = set(enabled_groups) if enabled_groups is not None else {"judge", "source", "chunk"}
+
+    def gate_thresholds(self) -> dict[str, float]:
+        """Return the verdict gate thresholds in effect for this engine.
+
+        Persisted with each run so the dashboard can detect drift across runs.
+        """
+        return {
+            "judge_threshold": self.threshold,
+            "metadata_match_threshold": self.metadata_match_threshold,
+            "required_keyword_threshold": self.required_keyword_threshold,
+        }
 
     def build_metrics(self) -> dict[str, Any]:
         """Build the DeepEval judging panel.
 
         Returns a dict mapping metric name → DeepEval metric object. A fresh
         instance is created per call to ensure clean state across concurrent runs.
+        Returns an empty dict when the ``"judge"`` toggle group is disabled,
+        which causes ``run_metrics()`` to return no LLM-judged scores.
         """
+        if "judge" not in self.enabled_groups:
+            return {}
+
         metrics: dict[str, Any] = {
             "answer_relevancy": AnswerRelevancyMetric(threshold=self.threshold, model=self.judge_model),
             "faithfulness": FaithfulnessMetric(threshold=self.threshold, model=self.judge_model),
@@ -112,9 +141,9 @@ class EvaluationEngine:
             result = await self.agent.ainvoke(payload, config=config)
             answer = extract_message_text(result["messages"][-1].content)
             agent_retrieval_results = extract_agent_retrieval_results(result["messages"])
-            return answer, agent_retrieval_results, round(time.perf_counter() - started, 3), None
+            return answer, agent_retrieval_results, round(time.perf_counter() - started, 2), None
         except Exception as exc:
-            return "", [], round(time.perf_counter() - started, 3), f"Agent invocation failed: {type(exc).__name__}: {exc}"
+            return "", [], round(time.perf_counter() - started, 2), f"Agent invocation failed: {type(exc).__name__}: {exc}"
 
     def run_retrieval_case(self, case: EvalCase) -> tuple[list[dict[str, Any]], float, str | None]:
         """Run the retriever directly, bypassing the agent.
@@ -134,9 +163,9 @@ class EvaluationEngine:
                 multi_fts=case.retrieval.multi_fts,
                 **case.metadata_filters,
             )
-            return [result.model_dump() for result in results], round(time.perf_counter() - started, 3), None
+            return [result.model_dump() for result in results], round(time.perf_counter() - started, 2), None
         except Exception as exc:
-            return [], round(time.perf_counter() - started, 3), f"Retrieval failed: {type(exc).__name__}: {exc}"
+            return [], round(time.perf_counter() - started, 2), f"Retrieval failed: {type(exc).__name__}: {exc}"
 
     def build_test_case(
         self,
@@ -185,28 +214,40 @@ class EvaluationEngine:
         )
         return dict(pairs)
 
-    @staticmethod
     def compute_case_status(
+        self,
         metric_results: dict[str, Any],
-        source_hit_rate: float,
+        hit_at_k: float | None,
         metadata_match_ratio: float,
         keyword_checks: dict[str, Any],
     ) -> str:
         """Return 'PASS' or 'REVIEW' based on three combined gates.
 
-        - metrics_ok: faithfulness and answer_relevancy >= 0.5
-        - retrieval_ok: source_hit_rate >= 0.5 and metadata_match_ratio >= 0.8
-        - keywords_ok: required_keyword_hit_rate >= 0.5 and no disallowed keywords present
+        Gate thresholds come from ``self.threshold`` (judge),
+        ``self.metadata_match_threshold``, and ``self.required_keyword_threshold``.
+        See ``eval_config.py`` for the configure-once contract.
+
+        - metrics_ok: faithfulness and answer_relevancy >= ``self.threshold``
+          (skipped when the ``"judge"`` toggle group is disabled).
+        - retrieval_ok: hit_at_k == 1.0 (skipped when ``"source"`` is disabled)
+          and metadata_match_ratio >= ``self.metadata_match_threshold``.
+        - keywords_ok: required_keyword_hit_rate >= ``self.required_keyword_threshold``
+          and no disallowed keywords present.
         """
-        faithfulness = metric_results.get("faithfulness", {}).get("score")
-        answer_relevancy = metric_results.get("answer_relevancy", {}).get("score")
+        if "judge" in self.enabled_groups:
+            faithfulness = metric_results.get("faithfulness", {}).get("score")
+            answer_relevancy = metric_results.get("answer_relevancy", {}).get("score")
+            required_scores = [score for score in [faithfulness, answer_relevancy] if score is not None]
+            metrics_ok = bool(required_scores) and all(score >= self.threshold for score in required_scores)
+        else:
+            metrics_ok = True
 
-        required_scores = [score for score in [faithfulness, answer_relevancy] if score is not None]
+        retrieval_ok = metadata_match_ratio >= self.metadata_match_threshold
+        if "source" in self.enabled_groups:
+            retrieval_ok = retrieval_ok and hit_at_k == 1.0
 
-        metrics_ok = bool(required_scores) and all(score >= 0.5 for score in required_scores)
-        retrieval_ok = source_hit_rate >= 0.5 and metadata_match_ratio >= 0.8
         keywords_ok = (
-            keyword_checks.get("required_keyword_hit_rate", 1.0) >= 0.5
+            keyword_checks.get("required_keyword_hit_rate", 1.0) >= self.required_keyword_threshold
             and keyword_checks.get("disallowed_keyword_hits", 0) == 0
         )
         return "PASS" if metrics_ok and retrieval_ok and keywords_ok else "REVIEW"
@@ -215,7 +256,7 @@ class EvaluationEngine:
         """Run a single eval case end-to-end: retrieval → agent → metrics → verdict."""
         errors: list[str] = []
 
-        # Direct retrieval: used for source_hit_rate, MRR, Precision@k, Recall@k,
+        # Direct retrieval: used for hit_at_k, MRR, Precision@k, Recall@k,
         # NDCG@k, and metadata_match_ratio as ground-truth search quality checks.
         retrieval_results, retrieval_latency, retrieval_error = self.run_retrieval_case(case)
         if retrieval_error:
@@ -234,24 +275,36 @@ class EvaluationEngine:
         test_case = self.build_test_case(case, answer, latency, deepeval_context_results)
         metric_results = await self.run_metrics(test_case)
 
-        source_hit_rate = compute_source_hit_rate(case, retrieval_results)
+        # Always-on metrics.
         metadata_match_ratio = compute_metadata_match_ratio(case, retrieval_results)
-        mrr = compute_mrr(case, retrieval_results)
-        precision_at_k = compute_precision_at_k(case, retrieval_results)
-        recall_at_k = compute_recall_at_k(case, retrieval_results)
-        ndcg_at_k = compute_ndcg_at_k(case, retrieval_results)
         backend_distribution = compute_backend_distribution(retrieval_results)
         keyword_checks = compute_keyword_checks(case, answer)
-        avg_judge_score = round(
-            safe_mean([
-                details.get("score")
-                for details in metric_results.values()
-                if details.get("score") is not None
-            ]) * 100,
-            1,
-        )
 
-        status = self.compute_case_status(metric_results, source_hit_rate, metadata_match_ratio, keyword_checks)
+        # Source-level retrieval metrics — only computed when toggle group is enabled.
+        source_on = "source" in self.enabled_groups
+        hit_at_k = compute_hit_at_k(case, retrieval_results) if source_on else None
+        mrr = compute_mrr(case, retrieval_results) if source_on else None
+        precision_at_k = compute_precision_at_k(case, retrieval_results) if source_on else None
+        recall_at_k = compute_recall_at_k(case, retrieval_results) if source_on else None
+        ndcg_at_k = compute_ndcg_at_k(case, retrieval_results) if source_on else None
+
+        # Chunk-level retrieval metrics — only computed when toggle group is enabled.
+        chunk_on = "chunk" in self.enabled_groups
+        chunk_hit_at_k = compute_chunk_hit_at_k(case, retrieval_results) if chunk_on else None
+        chunk_mrr = compute_chunk_mrr(case, retrieval_results) if chunk_on else None
+        chunk_precision_at_k = compute_chunk_precision_at_k(case, retrieval_results) if chunk_on else None
+        chunk_recall_at_k = compute_chunk_recall_at_k(case, retrieval_results) if chunk_on else None
+        chunk_ndcg_at_k = compute_chunk_ndcg_at_k(case, retrieval_results) if chunk_on else None
+
+        # avg_judge_score: None when the judge panel didn't run (empty metric_results).
+        judge_scores = [
+            details.get("score")
+            for details in metric_results.values()
+            if details.get("score") is not None
+        ]
+        avg_judge_score = round(safe_mean(judge_scores) * 100, 1) if judge_scores else None
+
+        status = self.compute_case_status(metric_results, hit_at_k, metadata_match_ratio, keyword_checks)
         if errors:
             status = "REVIEW"
 
@@ -270,12 +323,17 @@ class EvaluationEngine:
             "metadata_filters": case.metadata_filters,
             "expected_sources": case.expected_sources,
             "retrieval_preview": preview_results(retrieval_results),
-            "source_hit_rate": source_hit_rate,
+            "hit_at_k": hit_at_k,
             "metadata_match_ratio": metadata_match_ratio,
             "mrr": mrr,
             "precision_at_k": precision_at_k,
             "recall_at_k": recall_at_k,
             "ndcg_at_k": ndcg_at_k,
+            "chunk_hit_at_k": chunk_hit_at_k,
+            "chunk_mrr": chunk_mrr,
+            "chunk_precision_at_k": chunk_precision_at_k,
+            "chunk_recall_at_k": chunk_recall_at_k,
+            "chunk_ndcg_at_k": chunk_ndcg_at_k,
             "backend_distribution": backend_distribution,
             "keyword_checks": keyword_checks,
             "avg_judge_score": avg_judge_score,

@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS eval_runs (
     avg_case_score      REAL,"""
 
 _RUNS_FIXED_SUFFIX = """\
+    enabled_groups      TEXT,
+    gate_thresholds     TEXT,
     metric_averages     TEXT
 );"""
 
@@ -103,13 +105,32 @@ class EvalLedger:
                 conn.execute("ALTER TABLE eval_cases ADD COLUMN category TEXT DEFAULT ''")
             except sqlite3.OperationalError:
                 pass
+            # Migration: enabled_groups column on older databases.
+            try:
+                conn.execute("ALTER TABLE eval_runs ADD COLUMN enabled_groups TEXT")
+            except sqlite3.OperationalError:
+                pass
+            # Migration: gate_thresholds column on older databases.
+            try:
+                conn.execute("ALTER TABLE eval_runs ADD COLUMN gate_thresholds TEXT")
+            except sqlite3.OperationalError:
+                pass
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def save_run(self, report: dict[str, Any]) -> int:
+    # Runs are only persisted when every toggleable metric group ran, so trend
+    # charts in the dashboard compare like-with-like. Partial runs still land
+    # in the JSON/CSV artifacts for debugging.
+    FULL_METRIC_GROUPS: frozenset[str] = frozenset({"judge", "source", "chunk"})
+
+    def save_run(self, report: dict[str, Any]) -> int | None:
         """Persist a full evaluation report (summary + per-case results).
+
+        Only runs where every toggleable metric group was enabled are persisted.
+        Partial runs are skipped so that ledger-backed trend charts stay
+        comparable across runs. JSON/CSV reports still capture every run.
 
         Parameters
         ----------
@@ -119,10 +140,16 @@ class EvalLedger:
 
         Returns
         -------
-        int
-            The ``run_id`` assigned by SQLite for this evaluation run.
+        int or None
+            The ``run_id`` assigned by SQLite for this evaluation run, or
+            ``None`` if the run was skipped because not all metric groups
+            were enabled.
         """
         summary = report.get("summary", {})
+
+        enabled_groups_raw = summary.get("enabled_groups") or []
+        if set(enabled_groups_raw) != self.FULL_METRIC_GROUPS:
+            return None
 
         # ── Build run-level INSERT dynamically ────────────────────────
         run_fixed_cols = [
@@ -130,11 +157,23 @@ class EvalLedger:
             "case_count", "pass_count", "pass_rate", "avg_case_score",
         ]
         run_avg_cols = [col for col, _ in run_sql_columns()]
-        run_trailing_cols = ["metric_averages"]
+        run_trailing_cols = ["enabled_groups", "gate_thresholds", "metric_averages"]
 
         run_cols = run_fixed_cols + run_avg_cols + run_trailing_cols
         run_placeholders = ", ".join("?" for _ in run_cols)
         run_col_str = ", ".join(run_cols)
+
+        enabled_groups_value: str | None = (
+            json.dumps(summary.get("enabled_groups"))
+            if summary.get("enabled_groups") is not None
+            else None
+        )
+
+        gate_thresholds_value: str | None = (
+            json.dumps(report.get("gate_thresholds"))
+            if report.get("gate_thresholds") is not None
+            else None
+        )
 
         run_values = (
             report.get("generated_at"),
@@ -146,6 +185,8 @@ class EvalLedger:
             summary.get("pass_rate"),
             summary.get("avg_case_score"),
             *[summary.get(col) for col in run_avg_cols],
+            enabled_groups_value,
+            gate_thresholds_value,
             json.dumps(summary.get("metric_averages", {})),
         )
 

@@ -29,10 +29,13 @@ from eval_config import (
     BASE_DIR,
     CONCURRENCY,
     DATASET_PATH,
+    ENABLED_METRIC_GROUPS,
     JUDGE_MODEL,
+    JUDGE_THRESHOLD,
     MAX_CASES,
+    METADATA_MATCH_THRESHOLD,
     OUTPUT_DIR,
-    THRESHOLD,
+    REQUIRED_KEYWORD_THRESHOLD,
 )
 from eval_engine import EvaluationEngine
 from eval_report_manager import ReportManager
@@ -55,24 +58,32 @@ async def main() -> None:
     if MAX_CASES:
         cases = cases[:MAX_CASES]
 
-    print(f"\nDeepEval is running ({len(cases)} case(s), judge={JUDGE_MODEL}), please wait...")
+    enabled_groups = set(ENABLED_METRIC_GROUPS)
+    print(
+        f"\nDeepEval is running ({len(cases)} case(s), judge={JUDGE_MODEL}, "
+        f"enabled groups={sorted(enabled_groups) or '[]'}), please wait..."
+    )
 
     eval_engine = EvaluationEngine(
         agent=agent,
         retriever=retriever,
         judge_model=JUDGE_MODEL,
-        threshold=THRESHOLD,
+        threshold=JUDGE_THRESHOLD,
+        metadata_match_threshold=METADATA_MATCH_THRESHOLD,
+        required_keyword_threshold=REQUIRED_KEYWORD_THRESHOLD,
+        enabled_groups=enabled_groups,
     )
     report_manager = ReportManager(OUTPUT_DIR)
 
     results = await eval_engine.evaluate_cases(cases, concurrency=CONCURRENCY)
-    summary = report_manager.build_summary(results, judge_model=JUDGE_MODEL)
+    summary = report_manager.build_summary(results, judge_model=JUDGE_MODEL, enabled_groups=enabled_groups)
 
     report = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "dataset_path": str(DATASET_PATH),
         "judge_model": JUDGE_MODEL,
-        "threshold": THRESHOLD,
+        "threshold": JUDGE_THRESHOLD,
+        "gate_thresholds": eval_engine.gate_thresholds(),
         "summary": summary,
         "results": results,
     }
@@ -81,7 +92,13 @@ async def main() -> None:
 
     ledger = EvalLedger()
     run_id = ledger.save_run(report)
-    print(f"SQLite ledger        : {ledger.db_path}  (run_id={run_id})")
+    if run_id is None:
+        print(
+            f"SQLite ledger        : skipped — partial run (enabled groups={sorted(enabled_groups)}); "
+            f"ledger only persists runs with all of {sorted(ledger.FULL_METRIC_GROUPS)} enabled."
+        )
+    else:
+        print(f"SQLite ledger        : {ledger.db_path}  (run_id={run_id})")
 
     report_manager.print_summary(summary, json_path, csv_path)
     print("\nEvaluation complete.")

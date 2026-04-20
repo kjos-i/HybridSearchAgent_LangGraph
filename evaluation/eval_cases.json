@@ -12,6 +12,10 @@
       "norway_population.pdf",
       "norway_population.docx"
     ],
+    "expected_chunks": [
+      "5.5 million",
+      "Oslo"
+    ],
     "required_keywords": ["5.5 million", "Oslo"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -36,6 +40,10 @@
     "expected_sources": [
       "norway_facts.txt",
       "norway_facts.docx"
+    ],
+    "expected_chunks": [
+      "Bokmål",
+      "Nynorsk"
     ],
     "required_keywords": ["Nynorsk"],
     "disallowed_keywords": [],
@@ -62,6 +70,11 @@
     "expected_sources": [
       "norway_culture_modern_life.docx"
     ],
+    "expected_chunks": [
+      "friluftsliv",
+      "Allemannsretten",
+      "open-air living"
+    ],
     "required_keywords": ["open-air living", "Allemannsretten"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -86,6 +99,11 @@
     "expected_sources": [
       "norway_culture_modern_life.docx",
       "norway_fun_facts.pdf"
+    ],
+    "expected_chunks": [
+      "Midnight Sun",
+      "Polar Night",
+      "Arctic Circle"
     ],
     "required_keywords": ["Arctic Circle", "Northern Lights"],
     "disallowed_keywords": [],
@@ -113,6 +131,12 @@
       "norway_population.docx",
       "norway_population.pdf"
     ],
+    "expected_chunks": [
+      "82% of Norwegians",
+      "Bergen",
+      "Trondheim",
+      "Stavanger"
+    ],
     "required_keywords": ["Bergen", "Trondheim", "Stavanger"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -137,6 +161,11 @@
     ],
     "expected_sources": [
       "norway_population.pdf"
+    ],
+    "expected_chunks": [
+      "5.5 million",
+      "population density",
+      "Oslo"
     ],
     "required_keywords": ["5.5 million", "low population density"],
     "disallowed_keywords": ["82%", "Stavanger", "83.2 years", "19-20%"],
@@ -165,6 +194,11 @@
       "norway_famous_norwegians.docx",
       "norway_fun_facts.docx"
     ],
+    "expected_chunks": [
+      "South Pole",
+      "1911",
+      "Northwest Passage"
+    ],
     "required_keywords": ["South Pole", "1911", "Northwest Passage"],
     "disallowed_keywords": ["Nansen", "Kon-Tiki"],
     "metadata_filters": {},
@@ -190,6 +224,10 @@
       "norway_history_expanded.docx",
       "norway_history.docx"
     ],
+    "expected_chunks": [
+      "1814",
+      "Eidsvoll"
+    ],
     "required_keywords": ["1814", "Eidsvoll"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -214,6 +252,11 @@
     "expected_sources": [
       "norway_fun_facts.docx"
     ],
+    "expected_chunks": [
+      "Lærdal Tunnel",
+      "24.5 kilometers",
+      "driver fatigue"
+    ],
     "required_keywords": ["24.5 kilometers", "driver fatigue"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -236,6 +279,11 @@
     ],
     "expected_sources": [
       "norway_sites_to_visit.docx"
+    ],
+    "expected_chunks": [
+      "Preikestolen",
+      "604 meters",
+      "Lysefjord"
     ],
     "required_keywords": ["604 meters", "Lysefjord"],
     "disallowed_keywords": ["700 meters", "Trolltunga", "Ringedalsvatnet"],
@@ -261,6 +309,11 @@
       "norway_fun_facts.docx",
       "norway_facts.docx"
     ],
+    "expected_chunks": [
+      "cheese slicer",
+      "Thor Bjørklund",
+      "1925"
+    ],
     "required_keywords": ["1925"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -284,6 +337,11 @@
     ],
     "expected_sources": [
       "norway_facts.docx"
+    ],
+    "expected_chunks": [
+      "electric vehicle",
+      "hydropower",
+      "renewable"
     ],
     "required_keywords": ["electric vehicle", "hydropower"],
     "disallowed_keywords": [],
@@ -311,6 +369,11 @@
       "norway_facts.docx",
       "norway_culture_modern_life.docx"
     ],
+    "expected_chunks": [
+      "Government Pension Fund Global",
+      "sovereign wealth",
+      "renewable"
+    ],
     "required_keywords": ["sovereign wealth fund", "renewable"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -334,6 +397,11 @@
     ],
     "expected_sources": [
       "norway_population.docx"
+    ],
+    "expected_chunks": [
+      "19-20%",
+      "Poland and Lithuania",
+      "Somalia"
     ],
     "required_keywords": ["Poland", "Lithuania"],
     "disallowed_keywords": [],
@@ -361,6 +429,11 @@
       "norway_culture_modern_life.docx",
       "norway_sites_to_visit.docx"
     ],
+    "expected_chunks": [
+      "Trolltunga",
+      "Trollstigen",
+      "mythology"
+    ],
     "required_keywords": ["Trolltunga", "Trollstigen"],
     "disallowed_keywords": [],
     "metadata_filters": {},
@@ -383,6 +456,7 @@
       "The agent should decline to answer or redirect to Norway-specific content that is available."
     ],
     "expected_sources": [],
+    "expected_chunks": [],
     "required_keywords": [],
     "disallowed_keywords": ["10 million", "9 million", "11 million", "Swedish population", "Stockholm"],
     "metadata_filters": {},

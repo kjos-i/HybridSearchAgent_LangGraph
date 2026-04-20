@@ -24,6 +24,17 @@ class EvalCase(BaseModel):
     question: str
     expected_answer_points: list[str] = Field(default_factory=list)
     expected_sources: list[str] = Field(default_factory=list)
+    expected_chunks: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Representative text snippets for chunk-level retrieval metrics. "
+            "A retrieved chunk is considered relevant when any of these snippets "
+            "appears as a substring of the chunk's page_content (after "
+            "normalization). Snippets are preferred over chunk IDs because "
+            "chunk IDs change whenever the chunking strategy is tuned, while "
+            "short representative text remains stable."
+        ),
+    )
     required_keywords: list[str] = Field(default_factory=list)
     disallowed_keywords: list[str] = Field(default_factory=list)
     metadata_filters: dict[str, Any] = Field(default_factory=dict)

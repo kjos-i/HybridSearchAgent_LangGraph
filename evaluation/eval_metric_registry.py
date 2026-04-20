@@ -7,10 +7,10 @@ from this registry automatically.
 
 Renaming a metric
 ------------------
-Change the ``key`` and/or ``label`` in the ``METRICS`` list.  These files
-pick up the change automatically (no edits needed):
+Change the ``key``, ``label``, and/or ``fmt`` in the ``METRICS`` list.  These
+files pick up the change automatically (no edits needed):
 
-- eval_dashboard.py      — column lists, display labels, formatting
+- eval_dashboard.py      — column lists, display labels, decimal formatting
 - eval_report_manager.py — CSV fieldnames, summary averages, print output
 - eval_sqlite.py         — schema generation, INSERT statements, auto-migration
 
@@ -47,7 +47,8 @@ from typing import Literal
 # Data model
 # ---------------------------------------------------------------------------
 
-MetricGroup = Literal["llm", "retrieval", "keyword", "summary", "latency"]
+MetricGroup = Literal["llm", "retrieval", "chunk", "keyword", "summary", "latency"]
+ToggleGroup = Literal["judge", "source", "chunk"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +62,7 @@ class MetricDef:
     """Human-readable display label, e.g. ``"Faithfulness"``."""
 
     group: MetricGroup
-    """Which family the metric belongs to."""
+    """Display/family classification (used by the dashboard and CSV layout)."""
 
     sql_column: str | None = None
     """Column name in the ``eval_cases`` table.  ``None`` for composites that
@@ -82,29 +83,44 @@ class MetricDef:
     (``backend_distribution``, ``keyword_checks``).  These are not stored as a
     single SQL column — each sub-field gets its own column."""
 
+    toggle_group: ToggleGroup | None = None
+    """Which user-facing toggle controls whether this metric is computed.
+    ``None`` means always-on regardless of ``ENABLED_METRIC_GROUPS`` in
+    ``eval_config.py``. Toggleable values are ``"judge"`` (DeepEval LLM
+    metrics), ``"source"`` (source-level retrieval quality), and ``"chunk"``
+    (chunk-level retrieval quality, reserved for a future feature)."""
+
 
 # ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
 METRICS: list[MetricDef] = [
-    # ── LLM-judged (DeepEval) ─────────────────────────────────────────────
-    MetricDef(key="answer_relevancy",     label="Answer Relevancy",      group="llm", sql_column="answer_relevancy"),
-    MetricDef(key="faithfulness",         label="Faithfulness",           group="llm", sql_column="faithfulness"),
-    MetricDef(key="contextual_precision", label="Ctx Precision",         group="llm", sql_column="contextual_precision"),
-    MetricDef(key="contextual_recall",    label="Ctx Recall",            group="llm", sql_column="contextual_recall"),
-    MetricDef(key="contextual_relevancy", label="Ctx Relevancy",         group="llm", sql_column="contextual_relevancy"),
-    MetricDef(key="hallucination",        label="Hallucination",          group="llm", sql_column="hallucination"),
-    MetricDef(key="correctness_g_eval",   label="Correctness (GEval)",   group="llm", sql_column="correctness_g_eval"),
+    # ── LLM-judged (DeepEval) — toggle_group="judge" ──────────────────────
+    MetricDef(key="answer_relevancy",     label="Answer Relevancy",      group="llm", sql_column="answer_relevancy",     toggle_group="judge"),
+    MetricDef(key="faithfulness",         label="Faithfulness",           group="llm", sql_column="faithfulness",         toggle_group="judge"),
+    MetricDef(key="contextual_precision", label="Ctx Precision",         group="llm", sql_column="contextual_precision", toggle_group="judge"),
+    MetricDef(key="contextual_recall",    label="Ctx Recall",            group="llm", sql_column="contextual_recall",    toggle_group="judge"),
+    MetricDef(key="contextual_relevancy", label="Ctx Relevancy",         group="llm", sql_column="contextual_relevancy", toggle_group="judge"),
+    MetricDef(key="hallucination",        label="Hallucination",          group="llm", sql_column="hallucination",        toggle_group="judge"),
+    MetricDef(key="correctness_g_eval",   label="Correctness (GEval)",   group="llm", sql_column="correctness_g_eval",   toggle_group="judge"),
 
-    # ── Deterministic retrieval ───────────────────────────────────────────
-    MetricDef(key="source_hit_rate",      label="Source Hit Rate",  group="retrieval", sql_column="source_hit_rate",      summary_avg_key="avg_source_hit_rate"),
+    # ── Deterministic retrieval — source-level (toggle_group="source") ──
+    MetricDef(key="hit_at_k",             label="Hit@k",            group="retrieval", sql_column="hit_at_k",             summary_avg_key="avg_hit_at_k",           toggle_group="source"),
+    MetricDef(key="mrr",                  label="MRR",             group="retrieval", sql_column="mrr",                  summary_avg_key="avg_mrr",                toggle_group="source"),
+    MetricDef(key="precision_at_k",       label="Precision@k",     group="retrieval", sql_column="precision_at_k",       summary_avg_key="avg_precision_at_k",     toggle_group="source"),
+    MetricDef(key="recall_at_k",          label="Recall@k",        group="retrieval", sql_column="recall_at_k",          summary_avg_key="avg_recall_at_k",        toggle_group="source"),
+    MetricDef(key="ndcg_at_k",            label="NDCG@k",          group="retrieval", sql_column="ndcg_at_k",            summary_avg_key="avg_ndcg_at_k",          toggle_group="source"),
+    # ── Deterministic retrieval — always-on auxiliary ────────────────────
     MetricDef(key="metadata_match_ratio", label="Metadata Match",  group="retrieval", sql_column="metadata_match_ratio", summary_avg_key="avg_metadata_match_ratio"),
-    MetricDef(key="mrr",                  label="MRR",             group="retrieval", sql_column="mrr",                  summary_avg_key="avg_mrr"),
-    MetricDef(key="precision_at_k",       label="Precision@k",     group="retrieval", sql_column="precision_at_k",       summary_avg_key="avg_precision_at_k"),
-    MetricDef(key="recall_at_k",          label="Recall@k",        group="retrieval", sql_column="recall_at_k",          summary_avg_key="avg_recall_at_k"),
-    MetricDef(key="ndcg_at_k",            label="NDCG@k",          group="retrieval", sql_column="ndcg_at_k",            summary_avg_key="avg_ndcg_at_k"),
     MetricDef(key="backend_distribution", label="Backend Distribution", group="retrieval", composite=True),
+
+    # ── Deterministic retrieval — chunk-level (toggle_group="chunk") ─────
+    MetricDef(key="chunk_hit_at_k",       label="Chunk Hit@k",        group="chunk", sql_column="chunk_hit_at_k",       summary_avg_key="avg_chunk_hit_at_k",       toggle_group="chunk"),
+    MetricDef(key="chunk_mrr",            label="Chunk MRR",          group="chunk", sql_column="chunk_mrr",            summary_avg_key="avg_chunk_mrr",            toggle_group="chunk"),
+    MetricDef(key="chunk_precision_at_k", label="Chunk Precision@k", group="chunk", sql_column="chunk_precision_at_k", summary_avg_key="avg_chunk_precision_at_k", toggle_group="chunk"),
+    MetricDef(key="chunk_recall_at_k",    label="Chunk Recall@k",    group="chunk", sql_column="chunk_recall_at_k",    summary_avg_key="avg_chunk_recall_at_k",    toggle_group="chunk"),
+    MetricDef(key="chunk_ndcg_at_k",      label="Chunk NDCG@k",      group="chunk", sql_column="chunk_ndcg_at_k",      summary_avg_key="avg_chunk_ndcg_at_k",      toggle_group="chunk"),
 
     # ── Deterministic keyword / answer ────────────────────────────────────
     MetricDef(key="keyword_checks",       label="Keyword Checks",       group="keyword", composite=True),
@@ -150,11 +166,42 @@ def retrieval_metric_keys() -> list[str]:
     return [m.key for m in METRICS if m.group == "retrieval" and not m.composite]
 
 
+def chunk_metric_keys() -> list[str]:
+    """Ordered keys for the scalar chunk-level retrieval metrics."""
+    return [m.key for m in METRICS if m.group == "chunk" and not m.composite]
+
+
+def enabled_metric_keys(enabled_groups: set[str]) -> set[str]:
+    """Return the keys of every metric that should be computed for a run.
+
+    A metric is included when either:
+      - its ``toggle_group`` is ``None`` (always-on), or
+      - its ``toggle_group`` is in ``enabled_groups``.
+    """
+    return {
+        m.key for m in METRICS
+        if m.toggle_group is None or m.toggle_group in enabled_groups
+    }
+
+
+def is_enabled(key: str, enabled_groups: set[str]) -> bool:
+    """Check whether a single metric key is enabled for the given groups."""
+    metric = _BY_KEY.get(key)
+    if metric is None:
+        return False
+    return metric.toggle_group is None or metric.toggle_group in enabled_groups
+
+
+def keys_in_toggle_group(toggle_group: str) -> list[str]:
+    """Return all metric keys assigned to the given ``toggle_group``."""
+    return [m.key for m in METRICS if m.toggle_group == toggle_group]
+
+
 def metric_labels() -> dict[str, str]:
     """``key -> display label`` mapping.
 
     Also includes ``summary_avg_key -> label`` entries so that run-level
-    columns (e.g. ``avg_source_hit_rate``) resolve to human-readable names.
+    columns (e.g. ``avg_hit_at_k``) resolve to human-readable names.
     Replaces the hardcoded ``METRIC_LABELS`` dict in the dashboard.
     """
     labels: dict[str, str] = {m.key: m.label for m in METRICS}
@@ -162,16 +209,46 @@ def metric_labels() -> dict[str, str]:
         # SQL column name -> label (e.g. avg_judge_score -> Avg Judge Score).
         if m.sql_column and m.sql_column != m.key:
             labels[m.sql_column] = m.label
-        # Summary avg key -> label (e.g. avg_source_hit_rate -> Source Hit Rate).
+        # Summary avg key -> label (e.g. avg_hit_at_k -> Hit@k).
         if m.summary_avg_key:
             labels[m.summary_avg_key] = m.label
     # Fixed structural columns displayed in tables.
     labels["case_id"] = "Case ID"
     labels["category"] = "Category"
     labels["status"] = "Status"
-    labels["avg_case_score"] = "Avg Case Score"
+    labels["avg_case_score"] = "Avg Judge Score"
     labels["pass_rate"] = "Pass Rate"
     return labels
+
+
+def metric_fmts() -> dict[str, str]:
+    """``key -> Python format spec`` mapping, mirroring :func:`metric_labels`.
+
+    Every metric's ``fmt`` is reachable under its ``key``, ``sql_column``, and
+    ``summary_avg_key``. ``avg_case_score`` is aliased to ``avg_judge_score``
+    so the per-run judge-score KPI picks up the same format.
+    """
+    fmts: dict[str, str] = {m.key: m.fmt for m in METRICS}
+    for m in METRICS:
+        if m.sql_column and m.sql_column != m.key:
+            fmts[m.sql_column] = m.fmt
+        if m.summary_avg_key:
+            fmts[m.summary_avg_key] = m.fmt
+    fmts["avg_case_score"] = _BY_KEY["avg_judge_score"].fmt
+    return fmts
+
+
+def metric_fmt(key: str, default: str = ".3f") -> str:
+    """Return the display format for a single metric key (or alias)."""
+    m = _BY_KEY.get(key)
+    if m is not None:
+        return m.fmt
+    for metric in METRICS:
+        if metric.sql_column == key or metric.summary_avg_key == key:
+            return metric.fmt
+    if key == "avg_case_score":
+        return _BY_KEY["avg_judge_score"].fmt
+    return default
 
 
 # ── SQL helpers ───────────────────────────────────────────────────────────
@@ -221,7 +298,7 @@ def run_sql_columns() -> list[tuple[str, str]]:
 def summary_avg_pairs() -> list[tuple[str, str]]:
     """``(summary_avg_key, source_key)`` pairs for building run summaries.
 
-    Example: ``("avg_source_hit_rate", "source_hit_rate")``.
+    Example: ``("avg_hit_at_k", "hit_at_k")``.
     """
     return [(m.summary_avg_key, m.key) for m in METRICS if m.summary_avg_key]
 
