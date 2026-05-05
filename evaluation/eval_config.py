@@ -1,6 +1,10 @@
 """Configuration for the DeepEval evaluation harness.
 
-Edit the values below to control how the evaluation run behaves.
+Single source of truth for every tunable value the harness consumes:
+input/output paths, judge model and thresholds, concurrency, and the
+toggleable metric groups.  Documentation files (README.md,
+info_metrics.md) reference this module rather than reproducing the
+default values inline so they cannot drift when the constants change.
 """
 
 from pathlib import Path
@@ -12,7 +16,7 @@ DATASET_PATH = Path(__file__).resolve().parent / "eval_cases.json"
 OUTPUT_DIR = BASE_DIR / "evaluation" / "evaluation_results"
 
 # --- Judge settings ---
-JUDGE_MODEL = "gpt-5.4-mini"
+JUDGE_MODEL = "gpt-4o-mini"
 JUDGE_THRESHOLD = 0.5
 
 # --- Verdict gate thresholds (configure once per project) ---
@@ -33,8 +37,8 @@ METADATA_MATCH_THRESHOLD = 0.8
 REQUIRED_KEYWORD_THRESHOLD = 0.5
 
 # --- Run settings ---
-CONCURRENCY = 2
-MAX_CASES = 3   # Set to an int (e.g. 3) to limit the number of cases evaluated
+CONCURRENCY = 1
+MAX_CASES = None   # Set to an int (e.g. 3) to limit the number of cases evaluated
 
 # --- Metric groups ---
 # Controls which toggleable metric groups are computed for each evaluation run.

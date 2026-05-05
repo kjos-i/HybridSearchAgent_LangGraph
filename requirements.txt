@@ -15,6 +15,14 @@ pandas==3.0.1
 plotly==6.7.0
 streamlit==1.56.0
 
+# Evaluation harness dependencies
+altair==6.0.0
+deepeval==3.9.7
+streamlit-autorefresh==1.0.1
+
+# Evaluation test dependencies
+pytest==9.0.3
+
 # Notebook / ingestion pipeline dependencies
 langchain-community==0.4.1
 langchain-text-splitters==1.1.0

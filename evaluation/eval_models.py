@@ -1,4 +1,12 @@
-"""Data models for the DeepEval harness."""
+"""Pydantic data models that validate the evaluation dataset.
+
+EvalCase is one row in eval_cases.json — a question plus the
+ground-truth signals the harness scores against (expected sources,
+chunk snippets, keyword lists, metadata filters).  RetrievalSettings
+captures the per-case search hyperparameters that the retriever expects.
+Validation runs at load time in eval_utils.load_cases so a malformed
+dataset fails fast with a Pydantic error instead of crashing mid-run.
+"""
 
 from __future__ import annotations
 

@@ -1,12 +1,14 @@
 # Hybrid Search Agent
 
-Hybrid retrieval agent for question-answering over a local document corpus. Built with LangGraph, OpenAI LLM-model, SQLite FTS5, Chroma vector store, and Streamlit.
+Hybrid retrieval agent for question-answering over a local document corpus. Built with LangGraph, OpenAI chat model, SQLite FTS5, Chroma vector store, and Streamlit.
 
 The agent combines full-text search (BM25 via SQLite FTS5) and vector search (Chroma + OpenAI embeddings) into a single hybrid retrieval pipeline. When a user asks a question, the LangGraph agent calls the `hybrid_search_tool`, which queries both backends, normalizes and fuses scores, deduplicates results, and returns a ranked set of chunks. The agent then generates a grounded answer from the retrieved context. Metadata-aware filtering (category, language, file type, etc.) is supported across both backends. 
 
-The hybrid retrieval agent's document ingestion and metadata pipeline (`chroma_fts_metadata_chunks.ipynb`) loads source documents, enriches metadata, splits into chunks, and indexes them into both the Chroma vector store and the SQLite FTS5 index. See [`info_chroma_fts_metadata_chunks.md`](info_chroma_fts_metadata_chunks.md) for a detailed walkthrough. 
+The hybrid retrieval agent's document ingestion and metadata pipeline (`chroma_fts_metadata_chunks.ipynb`) loads source documents, enriches metadata, splits into chunks, and indexes them into both the Chroma vector store and the SQLite FTS5 index. See [`info_chroma_fts_metadata_chunks.md`](info_chroma_fts_metadata_chunks.md) for a detailed walkthrough.
 
-The project also includes an evaluation harness that measures the agent's retrieval and answer quality across test cases using LLM-as-judge, deterministic retrieval, and keyword-based metrics. See [`evaluation/README.md`](evaluation/README.md) for full details.
+For a top-down map of every file in the project, see [`info_project.md`](info_project.md). For a short audit of design trade-offs and improvement areas, see [`info_considerations.md`](info_considerations.md).
+
+The project also includes a self-contained evaluation harness for measuring the agent's retrieval and answer quality. See [`evaluation/README.md`](evaluation/README.md) for full details.
 
 The Streamlit dashboard provides both a conversational chat interface and a search explorer for direct retrieval with tunable parameters:
 
@@ -22,7 +24,7 @@ All scripts in this folder are Learning/Demo status.
 
 This agent is built for question-answering over a local document corpus using hybrid retrieval, and can be adapted for different document sets and domains by re-running the ingestion pipeline with new source files. The same retrieval architecture works for any scenario where combining keyword search and semantic search improves recall. For example internal knowledge bases, policy documents, technical documentation, research papers, or customer support content.
 
-The documents indexed, the metadata fields used for filtering, and the search weights that control the FTS/vector balance are all configurable without touching the core agent logic. The retrieval pipeline and agent behavior are independently tunable — search weights and FTS modes via `config.py`, agent reasoning via `system_prompt_hybrid_search.txt`. For best results, keep the corpus focused on a coherent domain — mixing unrelated document sets dilutes retrieval precision and makes it harder for the agent to ground its answers.
+The documents indexed, the metadata fields used for filtering, and the search weights that control the FTS/vector balance are all configurable without touching the core agent logic. The retrieval pipeline and agent behavior are independently tunable. Search weights and FTS modes via `config.py`, and agent reasoning via `system_prompt_hybrid_search.txt`. For best results, keep the corpus focused on a coherent domain, mixing unrelated document sets dilutes retrieval precision and makes it harder for the agent to ground its answers.
 
 ### Where to make changes for a different corpus or domain
 
@@ -43,19 +45,19 @@ The documents indexed, the metadata fields used for filtering, and the search we
 
 | File | Purpose | Notes | Status |
 |---|---|---|---|
-| `hybrid_search_agent.py` | Main interactive hybrid-search agent with streaming output and tool instrumentation | Loads `system_prompt_hybrid_search.txt`, uses OpenAI LLM-model, `OpenAIEmbeddings`, and `InMemorySaver` | Learning/Demo |
+| `hybrid_search_agent.py` | Main interactive hybrid-search agent with streaming output and tool instrumentation | Loads `system_prompt_hybrid_search.txt`, uses the OpenAI chat model from `MODEL_NAME`, `OpenAIEmbeddings`, and `InMemorySaver` | Learning/Demo |
 | `hybrid_search.py` | Hybrid retriever logic that fuses FTS and vector scores | Normalizes BM25/Chroma scores, supports similarity or MMR, and deduplicates results | Learning/Demo |
 | `fts_search.py` | SQLite FTS5 wrapper for indexing and querying chunks | Supports keyword, phrase, prefix, and weighted multi-mode FTS search with metadata filtering | Learning/Demo |
 | `pydantic_models.py` | Shared data models and tool schema | Defines `ChunkMetadata`, `HybridSearchArgs`, and `SearchResult` | Learning/Demo |
-| `utils.py` | Utilities for debug printing, logger setup, and graph PNG generation | Includes Mermaid graph export helper and dual-handler logger configuration | Learning/Demo |
-| `config.py` | Central configuration for search weights, FTS tuning, and debug flags | Search strategy hyperparameters (`FTS_WEIGHT`, `VECTOR_SIMILARITY_WEIGHT`, `VECTOR_MMR_WEIGHT`, `FTS_MAX_SCORE`, `FTS_MULTI_WEIGHTS`) and runtime toggles (`DEBUG`, `UPDATES`, `DRAW`, `DEBUG_PRINT`, `PRINT`) | Learning/Demo |
+| `utils.py` | Shared helpers for score formatting, debug printing, logger setup, and graph PNG export | `fmt_score` for uniform score display, Mermaid graph export, single + dual-handler logger configurations | Learning/Demo |
+| `config.py` | Central configuration for the agent model, search weights, FTS tuning, and debug flags | Agent model (`MODEL_NAME`), search strategy hyperparameters (`FTS_WEIGHT`, `VECTOR_SIMILARITY_WEIGHT`, `VECTOR_MMR_WEIGHT`, `FTS_MAX_SCORE`, `FTS_MULTI_WEIGHTS`), and runtime toggles (`DEBUG`, `UPDATES`, `DRAW`, `DEBUG_PRINT`, `PRINT`) | Learning/Demo |
 | `dashboard.py` | Streamlit dashboard with Chat and Search Explorer tabs | Conversational agent chat with tool-call inspection, direct hybrid search with tunable weights/modes/metadata filters, result visualisation (score table, pie chart, bar chart, chunk details), markdown export for both tabs | Learning/Demo |
 
 ### Evaluation Harness
 
 | Path | Purpose | Status |
 |---|---|---|
-| `evaluation/` | Evaluation harness — runs the agent end-to-end, scores each case with LLM-as-judge (DeepEval), deterministic retrieval, and keyword-based metrics, persists results to a SQLite ledger, and provides a Streamlit dashboard. See [`evaluation/README.md`](evaluation/README.md) for full details | Learning/Demo |
+| `evaluation/` | The evaluation harness runs the agent end-to-end, scores each case with LLM-as-judge (DeepEval), deterministic retrieval, and keyword-based metrics, persists results to a SQLite ledger, and provides a Streamlit dashboard. See [`evaluation/README.md`](evaluation/README.md) for full details | Learning/Demo |
 
 ### Notebook
 
@@ -63,23 +65,26 @@ The documents indexed, the metadata fields used for filtering, and the search we
 |---|---|---|
 | `chroma_fts_metadata_chunks.ipynb` | End-to-end ingestion notebook: load `.txt/.pdf/.docx` files, enrich metadata, chunk content, and ingest into Chroma + SQLite FTS | Learning/Demo |
 
+### Documentation
+
+| File | Purpose |
+|---|---|
+| `README.md` | This file — project overview, setup, and run instructions |
+| `info_project.md` | Top-down folder map and structural reference for the whole project |
+| `info_chroma_fts_metadata_chunks.md` | Walkthrough of every step in the ingestion notebook |
+| `info_considerations.md` | Audit of design trade-offs, intentional gotchas, and improvement areas |
+| `system_prompt_hybrid_search.txt` | Active system prompt loaded by `hybrid_search_agent.py` |
+
 ### Data and Runtime Artifacts
 
 | Path | Type | Purpose |
 |---|---|---|
 | `documents/` | Source documents | Norway-themed `.txt`, `.pdf`, and `.docx` files used for chunking and retrieval experiments |
 | `documents_with_metadata_df.csv` | CSV dataset | Export of document/chunk content with standardized metadata from the notebook workflow |
-| `fts.db` | SQLite database | FTS5 index for keyword/phrase/prefix retrieval |
-| `chroma_db/chroma.sqlite3` | SQLite database | Chroma persistence backing file |
-| `chroma_db/<collection-id>/` | Chroma segment directory | Collection segment data for embeddings and stored chunks |
-| `system_prompt_hybrid_search.txt` | Prompt file | Active system prompt loaded by `hybrid_search_agent.py` |
-| `dev_system_prompt_hybrid_search.txt` | Prompt draft | Developer-facing prompt notes / draft instructions for the hybrid-search assistant |
-| `agent_graph.png` | Image | Optional graph visualization output generated when `DRAW=True` |
-| `evaluation/` | Subfolder | Evaluation harness, SQLite ledger, Streamlit dashboard, and test cases |
-| `evaluation_results/` | Report output | Timestamped JSON and CSV evaluation reports (generated by the harness) |
-| `agent.log` | Log file | Runtime log file created by `setup_logger()` when the agent is run |
-| `__pycache__/` | Python cache | Compiled bytecode artifacts |
-| `.git/` | Git metadata | Repository internals |
+| `fts.db` | SQLite database | FTS5 index for keyword/phrase/prefix retrieval (generated on first ingest) |
+| `chroma_db/` | Chroma persistence | Vector store directory holding `chroma.sqlite3` and per-collection segment data (generated on first ingest) |
+| `agent_graph.png` | Image | Optional graph visualization, generated when `DRAW=True` |
+| `agent.log` | Log file | Shared runtime log written by `setup_logger()` (created on first run) |
 
 ## Architecture Overview
 
@@ -93,7 +98,7 @@ chroma_fts_metadata_chunks.ipynb  (ingestion)
 hybrid_search_agent.py  (interactive agent)
     ├── config.py                 (weights, flags)
     ├── system_prompt_hybrid_search.txt
-    └── LangGraph Agent (gpt-4o-mini)
+    └── LangGraph Agent (model set in config.py)
             └── hybrid_search_tool
                     └── HybridRetriever (hybrid_search.py)
                             ├── FTSStore (fts_search.py)  → fts.db
@@ -107,21 +112,14 @@ dashboard.py  (Streamlit UI)
     ├── Chat tab           → LangGraph agent (same as above)
     └── Search Explorer    → HybridRetriever directly (bypass agent)
 
-evaluation/eval_deepeval.py  (evaluation harness)
-    └── EvaluationEngine
-            ├── direct retriever    → retrieval quality metrics
-            └── full agent          → LLM-as-judge + keyword metrics
-                    ↓
-            eval_sqlite.py          → eval_ledger.db
-                    ↓
-            eval_dashboard.py       → Streamlit evaluation dashboard
+evaluation/                      (self-contained eval harness — see evaluation/README.md)
 ```
 
 **Flow per query:**
 
 1. The user sends a question to the LangGraph agent (via CLI or dashboard Chat tab).
 2. The agent calls `hybrid_search_tool` with the query and optional metadata filters.
-3. `HybridRetriever` queries both backends in parallel — `FTSStore` (BM25 keyword search against `fts.db`) and Chroma (vector similarity or MMR against `chroma_db/`).
+3. `HybridRetriever` queries both backends in parallel, `FTSStore` (BM25 keyword search against `fts.db`) and Chroma (vector similarity or MMR against `chroma_db/`).
 4. Raw scores are normalized into 0–1 range, weighted by the configured backend weights, fused, and deduplicated.
 5. The ranked chunks are returned to the agent, which generates a grounded answer from the retrieved context.
 6. The dashboard Search Explorer tab provides direct access to the `HybridRetriever`, bypassing the agent, for retrieval experimentation with tunable weights and modes.
@@ -130,7 +128,7 @@ evaluation/eval_deepeval.py  (evaluation harness)
 
 - FTS mode options:
   - **Single mode**: One of keyword, phrase, or prefix matching at a time
-  - **Multi mode**: Keyword always runs as baseline; phrase and prefix are additive (none, one, or both)
+  - **Multi mode**: Keyword always runs as baseline, phrase and prefix are additive (none, one, or both)
 - Vector mode options:
   - Similarity search
   - MMR (max marginal relevance) search
@@ -143,25 +141,31 @@ evaluation/eval_deepeval.py  (evaluation harness)
 
 All tuning is done in `config.py`:
 
+### Agent Model
+
+| Setting | Description |
+|---|---|
+| `MODEL_NAME` | OpenAI chat model used by the LangGraph agent. Affects how search queries are constructed and how grounded answers are synthesised. |
+
 ### Search Strategy
 
-| Setting | Default | Description |
-|---|---|---|
-| `FTS_WEIGHT` | `0.5` | Weight of FTS (BM25) results in the fused ranking |
-| `VECTOR_SIMILARITY_WEIGHT` | `0.5` | Weight of vector similarity results in the fused ranking |
-| `VECTOR_MMR_WEIGHT` | `0.5` | Weight of vector MMR results in the fused ranking |
-| `FTS_MAX_SCORE` | `20.0` | Ceiling used to normalize raw BM25 scores into 0–1 range |
-| `FTS_MULTI_WEIGHTS` | `{"phrase": 1.0, "keyword": 1.0, "prefix": 1.0}` | Per-mode weights for multi-mode FTS ranking (values > 1.0 boost, < 1.0 dampen) |
+| Setting | Description |
+|---|---|
+| `FTS_WEIGHT` | Weight of FTS (BM25) results in the fused ranking |
+| `VECTOR_SIMILARITY_WEIGHT` | Weight of vector similarity results in the fused ranking |
+| `VECTOR_MMR_WEIGHT` | Weight of vector MMR results in the fused ranking |
+| `FTS_MAX_SCORE` | Ceiling used to normalize raw BM25 scores into 0–1 range |
+| `FTS_MULTI_WEIGHTS` | Per-mode weights for multi-mode FTS ranking (values > 1.0 boost, < 1.0 dampen) |
 
 ### Debug and Logging Flags
 
-| Setting | Default | Description |
-|---|---|---|
-| `DEBUG` | `False` | Enable internal retriever / LangGraph debug logging |
-| `UPDATES` | `False` | Show LangGraph node state updates during execution |
-| `DRAW` | `False` | Export a PNG of the agent graph on startup |
-| `DEBUG_PRINT` | `False` | Enable helper debug output from utilities/tools |
-| `PRINT` | `False` | Control top-level console logging visibility |
+| Setting | Description |
+|---|---|
+| `DEBUG` | Enable internal retriever / LangGraph debug logging |
+| `UPDATES` | Show LangGraph node state updates during execution |
+| `DRAW` | Export a PNG of the agent graph on startup |
+| `DEBUG_PRINT` | Enable helper debug output from utilities/tools |
+| `PRINT` | Control top-level console logging visibility |
 
 ## Requirements
 
@@ -171,10 +175,12 @@ All dependencies are pinned in `requirements.txt`. Install with:
 pip install -r requirements.txt
 ```
 
-Dependencies are organized into three groups:
+Dependencies are organized into the following groups (see `requirements.txt` for pinned versions):
 
 - **Core agent/runtime**: `langgraph`, `langchain`, `langchain-core`, `langchain-openai`, `langchain-chroma`, `chromadb`, `pydantic`, `python-dotenv`
 - **Dashboard**: `pandas`, `plotly`, `streamlit`
+- **Evaluation harness**: `altair`, `deepeval`, `streamlit-autorefresh`
+- **Evaluation tests**: `pytest`
 - **Notebook / ingestion pipeline**: `langchain-community`, `langchain-text-splitters`, `langdetect`, `numpy`, `matplotlib`, `scikit-learn`, `docx2txt`, `pypdf`
 
 ## Environment Variables
@@ -222,18 +228,7 @@ The sidebar provides:
 
 ### Run Evaluation Harness
 
-```bash
-cd HybridSearchAgent_LangGraph
-python evaluation/eval_deepeval.py
-```
-
-Launch the evaluation dashboard:
-
-```bash
-streamlit run evaluation/eval_dashboard.py
-```
-
-See [`evaluation/README.md`](evaluation/README.md) for full details on metrics, configuration, and test cases.
+The project includes a self-contained evaluation harness for measuring retrieval and answer quality. See [`evaluation/README.md`](evaluation/README.md) for the harness overview, configuration, and run instructions.
 
 ## Suggested Learning Path
 
@@ -249,8 +244,7 @@ See [`evaluation/README.md`](evaluation/README.md) for full details on metrics, 
 ## Notes
 
 - This repository is intentionally educational and experimentation-oriented.
-- Existing DB artifacts (`fts.db`, `chroma_db/...`) are stateful; deleting them resets indexed state.
+- Existing DB artifacts (`fts.db`, `chroma_db/...`) are stateful, deleting them resets indexed state.
 - The current agent uses `InMemorySaver`, so conversation state is not persisted across process restarts.
 - If you change metadata fields, keep `pydantic_models.py`, `fts_search.py`, and the notebook ingestion flow in sync.
-- The notebook currently has cells present but not executed in the current saved state.
 - The dashboard (`dashboard.py`) uses `InMemorySaver` with a unique thread ID per session, so chat history resets when the Streamlit app restarts or when the "New conversation" button is clicked.

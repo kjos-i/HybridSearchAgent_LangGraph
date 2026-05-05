@@ -38,10 +38,12 @@ os.chdir(_PROJECT_ROOT)
 from config import (  # noqa: E402
     FTS_MULTI_WEIGHTS,
     FTS_WEIGHT,
+    MODEL_NAME,
     VECTOR_MMR_WEIGHT,
     VECTOR_SIMILARITY_WEIGHT,
 )
 from hybrid_search_agent import agent, retriever  # noqa: E402
+from utils import fmt_score  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -113,29 +115,6 @@ if "search_results" not in st.session_state:
     st.session_state.search_results = None
 
 # ---------------------------------------------------------------------------
-# Async helper
-# ---------------------------------------------------------------------------
-
-
-def _run_async(coro: object) -> object:
-    """Execute an async coroutine from synchronous Streamlit code.
-
-    Creates a dedicated event loop per call because Streamlit's execution
-    model does not provide a running loop in the script thread.
-    """
-    loop = asyncio.new_event_loop()
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
-
-
-def _fmt_score(score: float | None) -> str:
-    """Format a retrieval score for display, returning 'N/A' when missing."""
-    return f"{score:.4f}" if score is not None else "N/A"
-
-
-# ---------------------------------------------------------------------------
 # Agent helpers
 # ---------------------------------------------------------------------------
 
@@ -191,7 +170,7 @@ def _extract_response(result: dict) -> tuple[str, list[dict]]:
 def _render_tool_call(tc: dict) -> None:
     """Render a single tool call's results inside a Streamlit expander.
 
-    If the output contains a ``results`` list (from the hybrid search tool),
+    If the output contains a results list (from the hybrid search tool),
     each result is displayed as a numbered line with source, backend, and score.
     Otherwise the raw JSON output is shown.
     """
@@ -203,7 +182,7 @@ def _render_tool_call(tc: dict) -> None:
             source = Path(r.get("source") or "unknown").name
             score = r.get("score")
             backend = r.get("backend", "?")
-            score_str = _fmt_score(score)
+            score_str = fmt_score(score)
             st.markdown(f"**{i + 1}.** `{source}` — {backend} (score: {score_str})")
     else:
         st.json(output)
@@ -233,7 +212,7 @@ def _export_chat_markdown(messages: list[dict]) -> str:
                         source = Path(r.get("source") or "unknown").name
                         score = r.get("score")
                         backend = r.get("backend", "?")
-                        score_str = _fmt_score(score)
+                        score_str = fmt_score(score)
                         lines.append(f"{i + 1}. `{source}` — {backend} (score: {score_str})")
         if msg.get("latency") is not None:
             lines.append(f"\n*Response time: {msg['latency']:.1f}s*")
@@ -269,7 +248,7 @@ def _export_search_markdown(data: dict) -> str:
         source = Path(r.get("source") or "unknown").name
         score = r.get("score")
         backend = r.get("backend", "unknown")
-        score_str = _fmt_score(score)
+        score_str = fmt_score(score)
         chunk_id = r.get("chunk_id", "N/A")
         category = r.get("category") or "N/A"
         lines.append(f"### {i + 1}. {source}")
@@ -293,7 +272,7 @@ with st.sidebar:
 
     st.subheader("Agent")
     st.markdown(
-        f"**Model:** gpt-4o-mini  \n"
+        f"**Model:** {MODEL_NAME}  \n"
         f"**Thread:** `{st.session_state.chat_thread_id[:16]}\u2026`"
     )
     if st.button("New conversation", use_container_width=True):
@@ -304,6 +283,10 @@ with st.sidebar:
     st.divider()
 
     st.subheader("Search Weights")
+    st.caption(
+        "Sliders mutate the shared retriever, so changes affect both the "
+        "Chat tab (agent tool calls) and the Search Explorer tab."
+    )
     sidebar_fts_w = st.slider("FTS", 0.0, 1.0, FTS_WEIGHT, 0.05, key="w_fts")
     sidebar_vec_sim_w = st.slider("Vector (similarity)", 0.0, 1.0, VECTOR_SIMILARITY_WEIGHT, 0.05, key="w_vec_sim")
     sidebar_vec_mmr_w = st.slider("Vector (MMR)", 0.0, 1.0, VECTOR_MMR_WEIGHT, 0.05, key="w_vec_mmr")
@@ -373,7 +356,7 @@ with tab_chat:
             with st.spinner("Agent is thinking\u2026"):
                 started = time.perf_counter()
                 try:
-                    result = _run_async(
+                    result = asyncio.run(
                         _invoke_agent(prompt, st.session_state.chat_thread_id),
                     )
                     latency = time.perf_counter() - started
@@ -446,17 +429,28 @@ with tab_search:
                 use_phrase = single_choice == "Phrase"
                 use_prefix = single_choice == "Prefix"
 
+        _FILTER_KEYS = ["flt_category", "flt_language", "flt_filename", "flt_file_type", "flt_folder"]
+
         with st.expander("Metadata filters"):
             fc1, fc2 = st.columns(2)
             with fc1:
-                filter_category = st.text_input("Category", placeholder="e.g. Norway")
-                filter_language = st.text_input("Language", placeholder="e.g. en")
-                filter_filename = st.text_input("Filename", placeholder="e.g. norway_facts.txt")
+                filter_category = st.text_input("Category", placeholder="e.g. Norway", key="flt_category")
+                filter_language = st.text_input("Language", placeholder="e.g. en", key="flt_language")
+                filter_filename = st.text_input("Filename", placeholder="e.g. norway_facts.txt", key="flt_filename")
             with fc2:
-                filter_file_type = st.text_input("File type", placeholder="e.g. .txt")
-                filter_folder = st.text_input("Folder", placeholder="e.g. documents")
+                filter_file_type = st.text_input("File type", placeholder="e.g. .txt", key="flt_file_type")
+                filter_folder = st.text_input("Folder", placeholder="e.g. documents", key="flt_folder")
 
-        submitted = st.form_submit_button("Search", use_container_width=True, type="primary")
+        col_submit, col_clear = st.columns([3, 1])
+        with col_submit:
+            submitted = st.form_submit_button("Search", use_container_width=True, type="primary")
+        with col_clear:
+            cleared = st.form_submit_button("Clear filters", use_container_width=True)
+
+    if cleared:
+        for k in _FILTER_KEYS:
+            st.session_state.pop(k, None)
+        st.rerun()
 
     if submitted and query:
         metadata_filters: dict[str, str] = {}
@@ -563,10 +557,7 @@ with tab_search:
                     yaxis=dict(gridcolor="#e9ecef"),
                 )
                 st.plotly_chart(fig_bar, use_container_width=True, key="bar_scores")
-            st.caption(
-                "FTS scores are negative (BM25 \u2014 more negative = better match). "
-                "Vector scores are 0\u20131 (higher = better)."
-            )
+            st.caption("All scores normalized to 0\u20131 (higher = better).")
 
         # -- results table --
         st.markdown("**Ranked Results**")
@@ -593,7 +584,7 @@ with tab_search:
             source = Path(r.get("source") or "unknown").name
             score = r.get("score")
             backend = r.get("backend", "unknown")
-            score_str = _fmt_score(score)
+            score_str = fmt_score(score)
 
             with st.expander(f"#{i + 1} \u2014 {source} | {backend} | score: {score_str}"):
                 st.markdown(r.get("page_content", ""))

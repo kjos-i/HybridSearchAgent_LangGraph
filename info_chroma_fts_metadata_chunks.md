@@ -5,7 +5,7 @@ This notebook builds the two retrieval indexes used by the HybridSearchAgent:
 - **Chroma vector store** — stores OpenAI-embedded document chunks for semantic (vector) search.
 - **SQLite FTS5 index** — stores raw chunk text for full-text search (keyword, phrase, and prefix) via BM25.
 
-Both indexes must be populated before the agent or dashboard can retrieve results. Run the notebook cells top-to-bottom on first use; re-run individual sections to refresh either index after document changes.
+Both indexes must be populated before the agent or dashboard can retrieve results. Run the notebook cells top-to-bottom on first use. Re-run individual sections to refresh either index after document changes.
 
 ## Pipeline Overview
 
@@ -45,7 +45,7 @@ Uses LangChain's `DirectoryLoader` with format-specific loaders to read all file
 | PDF | `PyPDFLoader` | `.pdf` |
 | Word | `Docx2txtLoader` | `.docx` |
 
-All loaded documents are merged into a single list. Each document has a `page_content` (the text) and a `metadata` dict (initially just the `source` path).
+All loaded documents are merged into a single list. Each document has a `page_content` (the text) and a `metadata` dict.
 
 ### 2. Build Pandas DataFrame and Enrich Metadata
 
@@ -93,7 +93,7 @@ Documents are split into overlapping chunks using `RecursiveCharacterTextSplitte
 
 The splitter preserves all document-level metadata on each chunk. Chunk boundaries are chosen at natural break points (paragraphs, sentences, words) using the recursive splitting strategy.
 
-The current values are tuned for the short, factual Norway-themed documents in this project. These are not universal defaults. Optimal chunk size and overlap depend on the dataset. Shorter chunks improve precision for factual lookups but lose surrounding context; longer chunks preserve context but may dilute relevance scores. Common starting points are 500–1000 characters with 50–200 overlap, adjusted based on retrieval evaluation results.
+The current values are tuned for the short, factual Norway-themed documents in this project. These are not universal defaults. Optimal chunk size and overlap depend on the dataset. Shorter chunks improve precision for factual lookups but lose surrounding context. Longer chunks preserve context but may dilute relevance scores. Common starting points are 500–1000 characters with 50–200 overlap, adjusted based on retrieval evaluation results.
 
 ### 6. Add Chunk-Level Metadata
 
@@ -101,9 +101,9 @@ Three positional metadata fields are added to each chunk after splitting:
 
 | Field | Value | Purpose |
 |-------|-------|---------|
-| `chunk_id` | Sequential integer (0, 1, 2, ...) | Position in the chunk list |
-| `chunk_hash_id` | MD5 of `{doc_hash_id}_{chunk_id}` | Deterministic unique ID per chunk — used as the Chroma document ID for idempotent upserts |
-| `chunk_start_char` / `chunk_end_char` | Character offsets | Position of the chunk within the concatenated document text |
+| `chunk_id` | Per-document sequential integer (0, 1, 2, … restarts at 0 for each document) | Position within its document, stable across re-ingestion regardless of corpus load order |
+| `chunk_hash_id` | MD5 of `{doc_hash_id}_{chunk_id}` | Deterministic unique ID per chunk — used as the per-chunk identifier in Chroma for idempotent upserts; stable across re-ingestion because both inputs are content-/position-derived rather than batch-derived |
+| `chunk_start_char` / `chunk_end_char` | Character offsets | Position of the chunk within its source document |
 
 ### 7. Standardize Metadata with Pydantic
 
@@ -123,7 +123,7 @@ vector_store.add_documents(clean_chunks)
 **Upsert with source-level refresh**: For updating an existing database after document changes:
 1. Identifies all unique `source` values in the current batch.
 2. If `REFRESH_EXISTING_SOURCES = True`: Deletes all existing chunks for those sources first (prevents "ghost chunks" if the new file version has fewer chunks than the old one).
-3. Upserts the new chunks using `chunk_hash_id` as the document ID — this ensures deterministic, idempotent inserts.
+3. Upserts the new chunks using `chunk_hash_id` as the per-chunk identifier in Chroma — this ensures deterministic, idempotent inserts.
 
 Embeddings are generated via `OpenAIEmbeddings` and stored alongside the chunk text and metadata in `chroma_db/`.
 
@@ -143,6 +143,12 @@ fts_store.add_documents(clean_chunks)
 
 The FTS index is stored in `fts.db` and queried by the `FTSStore` class in `fts_search.py`.
 
+### Re-ingesting after metadata changes
+
+If you change how chunk metadata is computed (chunking strategy, offset calculation, classifier output, etc.) and you want existing indexes to reflect the new logic, run the **upsert / refresh** cells in sections 8 and 9 with `REFRESH_EXISTING_SOURCES = True`. Those cells purge prior rows for each source before writing the new chunks, so old and new metadata never coexist for the same chunk.
+
+The simple-insert cells (`vector_store.add_documents(...)` and `fts_store.add_documents(...)`) are append-only. Running them a second time leaves stale rows in place alongside the new ones, producing duplicates and silently mixing old and new metadata at retrieval time. Use them only on a fresh `chroma_db/` and `fts.db`, or after deleting both stores.
+
 ### 10. Verify and Visualize
 
 Several inspection cells are provided for verifying the indexed data:
@@ -161,7 +167,7 @@ To use this pipeline with your own documents:
 3. **Review the metadata fields** — add or remove enrichment cells based on what metadata is relevant for your use case. If you add new fields, update the `ChunkMetadata` model in `pydantic_models.py` and the FTS schema in `fts_search.py` to keep everything in sync.
 4. **Adjust chunking parameters** — adjust `chunk_size` and `chunk_overlap` to fit your dataset.
 5. **Re-run the notebook** top-to-bottom to rebuild both indexes.
-6. **Delete old indexes** if you want a clean start — remove `fts.db` and the `chroma_db/` directory before re-running.
+6. **Delete old indexes** if you want a clean start, remove `fts.db` and the `chroma_db/` directory before re-running.
 
 ## Dependencies
 

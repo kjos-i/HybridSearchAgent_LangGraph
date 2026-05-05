@@ -1,10 +1,10 @@
 """
-DeepEval-based evaluation harness for `hybrid_search_agent.py`.
+DeepEval-based evaluation harness for hybrid_search_agent.py.
 
 Features:
 - Runs the real LangGraph hybrid-search agent.
 - Evaluates retrieved context and final answers with DeepEval RAG metrics.
-- Saves timestamped JSON and CSV reports under `evaluation_results/`.
+- Saves timestamped JSON and CSV reports under evaluation_results/.
 
 Requirements:
     pip install deepeval
@@ -51,7 +51,16 @@ from hybrid_search_agent import agent, retriever  # noqa: E402
 
 
 async def main() -> None:
-    """Load config, run all eval cases, and write the JSON and CSV reports."""
+    """End-to-end entry point — orchestrates one full evaluation run.
+
+    Loads the dataset, instantiates EvaluationEngine and
+    ReportManager with the values from eval_config, runs every
+    case concurrently (bounded by CONCURRENCY), writes JSON and CSV
+    artifacts to OUTPUT_DIR, persists the run to the SQLite ledger
+    when every toggleable metric group was enabled, and prints a tabular
+    summary to stdout.  MAX_CASES (when set) truncates the dataset
+    for dev runs without touching the ledger's full-run gate.
+    """
     load_dotenv()
 
     cases = load_cases(DATASET_PATH)

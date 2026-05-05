@@ -4,7 +4,7 @@ Hybrid Search Agent using FTS + Vector embeddings.
 This module defines a LangGraph-enabled research assistant agent that:
     - Uses a HybridRetriever combining FTS and semantic vector search.
     - Provides a Pydantic-based schema for input arguments, including metadata filters.
-    - Exposes a `hybrid_search_tool` for LangGraph agent.
+    - Exposes a hybrid_search_tool for LangGraph agent.
     - Runs an interactive async agent loop with streaming responses and tool tracking.
 """
 
@@ -24,21 +24,19 @@ from langchain_core.messages import HumanMessage
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.checkpoint.memory import InMemorySaver
-from pydantic import BaseModel, Field
 
 # Local imports
 from fts_search import FTSStore
 from hybrid_search import HybridRetriever
 from pydantic_models import HybridSearchArgs
-from utils import debug_print, print_agent_graph, setup_logger
+from utils import print_agent_graph, setup_logger
 from config import (
     DEBUG,
     DRAW,
-    DEBUG_PRINT,
     FTS_MAX_SCORE,
     FTS_MULTI_WEIGHTS,
     FTS_WEIGHT,
-    PRINT,
+    MODEL_NAME,
     UPDATES,
     VECTOR_MMR_WEIGHT,
     VECTOR_SIMILARITY_WEIGHT,
@@ -47,20 +45,23 @@ from config import (
 # Load env from specific path
 load_dotenv()
 
-
 # Initialize logger
 logger = setup_logger("hybrid_search_agent")
 
 # --- Database and Store Initialization ---
+# Anchor store paths to this file's directory so the agent finds the
+# populated databases regardless of the caller's current working dir.
+BASE_DIR = Path(__file__).parent
+
 # Initialize Vector Store (Semantic)
 vector_store = Chroma(
-    collection_name="document_collection_1", 
+    collection_name="document_collection_1",
     embedding_function=OpenAIEmbeddings(),
-    persist_directory="./chroma_db"
+    persist_directory=str(BASE_DIR / "chroma_db")
 )
 
 # Initialize Full-Text Search (Keyword)
-fts_store = FTSStore()
+fts_store = FTSStore(db_path=str(BASE_DIR / "fts.db"), fts_max_score=FTS_MAX_SCORE)
 
 # Global retriever instance used by the tool
 retriever = HybridRetriever(
@@ -69,7 +70,6 @@ retriever = HybridRetriever(
     fts_weight=FTS_WEIGHT,
     vector_similarity_weight=VECTOR_SIMILARITY_WEIGHT,
     vector_mmr_weight=VECTOR_MMR_WEIGHT,
-    fts_max_score=FTS_MAX_SCORE,
 )
 
 
@@ -77,12 +77,26 @@ retriever = HybridRetriever(
 @tool(args_schema=HybridSearchArgs)
 def hybrid_search_tool(**kwargs):
     """
-    Search tool that fuses FTS keyword results with Chroma vector results.
-    
-    Logic:
-        1. Validates flags (disables prefix if phrase is active).
-        2. Filters out None values from metadata.
-        3. Calls HybridRetriever to perform score-fused retrieval.
+    LangGraph tool that fuses FTS and Chroma vector results into a single
+    ranked list.
+
+    Inputs are validated against HybridSearchArgs before this body
+    runs.  The implementation:
+
+        1. Resolves search-mode flags (use_phrase wins over
+           use_prefix when both are set).
+        2. Strips None-valued kwargs into a metadata-filter dict.
+        3. Delegates to HybridRetriever.search for score fusion,
+           deduplication, and ranking.
+
+    Errors from the underlying SQLite or Chroma backends are caught and
+    surfaced as user-facing strings so a failed retrieval never crashes
+    the agent loop.
+
+    Returns:
+        dict | str: {"results": [...]} on success (each result is a
+        SearchResult.model_dump() payload), or an error string on
+        backend failure.
     """
     try:
         logger.info(f"hybrid_search_tool called with kwargs: {kwargs}")
@@ -135,13 +149,13 @@ def hybrid_search_tool(**kwargs):
         return f"Error: Retrieval system failure ({type(e).__name__}). Try a simpler keyword search."
 
     except Exception as e:
-            logger.error(f"Unexpected tool error: {str(e)}")
-            return f"Error: An unexpected issue occurred during search: {str(e)}."
+        logger.error(f"Unexpected tool error: {str(e)}")
+        return f"Error: An unexpected issue occurred during search: {str(e)}."
 
 
 # --- Agent Configuration ---
 tools = [hybrid_search_tool]
-model = ChatOpenAI(model="gpt-4o-mini", temperature=0, streaming=True, stream_usage=True)
+model = ChatOpenAI(model=MODEL_NAME, temperature=0, streaming=True, stream_usage=True)
 checkpointer = InMemorySaver()
 system_prompt_path = Path(__file__).with_name("system_prompt_hybrid_search.txt")
 system_prompt = system_prompt_path.read_text(encoding="utf-8").strip()
@@ -154,8 +168,23 @@ if DRAW: print_agent_graph(agent)
 # --- Async interactive agent loop ---
 async def run_agent():
     """
-    Orchestrates the async conversation loop.
-    Handles event streaming for real-time AI responses and tool performance tracking.
+    Run the interactive REPL — read a user prompt, stream the agent's
+    response, and print tool/timing diagnostics for each turn.
+
+    Consumes LangGraph astream_events (v2) and dispatches per-event
+    behaviour:
+        - on_chat_model_stream — incremental token output to stdout.
+        - on_tool_start / on_tool_end — wall-clock latency timing
+          via the tool_timers dict keyed by run_id.
+        - on_tool_error — surface tool failures to console and log.
+        - on_chat_model_end — capture token-usage metadata (modern
+          usage_metadata first, falling back to legacy
+          response_metadata.token_usage).
+        - on_chain_end (agent) — print a turn separator.
+
+    The loop terminates when the user types exit or quit.
+    Conversation state is held in InMemorySaver under a fixed
+    thread_id so subsequent turns share context within the process.
     """
 
     config = {"configurable": {"thread_id": "1"}}

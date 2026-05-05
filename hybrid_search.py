@@ -1,15 +1,18 @@
 """
 Hybrid search retriever combining full-text and vector-based search.
 
-This module provides the `HybridRetriever` class that:
+This module provides the HybridRetriever class that:
     - Integrates keyword/phrase/prefix-based FTS results.
     - Integrates semantic vector search results (Chroma DB).
     - Computes hybrid scores for ranking results across both search types.
-    - Returns deduplicated and ranked `SearchResult` objects.
+    - Returns deduplicated and ranked SearchResult objects.
 """
 
 # Local imports
 from pydantic_models import SearchResult
+from utils import setup_logger
+
+logger = setup_logger("hybrid_search")
        
 
 class HybridRetriever:
@@ -26,16 +29,26 @@ class HybridRetriever:
     """
 
     def __init__(
-            self, 
-            fts_store, 
-            vector_store, 
-            fts_weight: float, 
-            vector_similarity_weight: float, 
-            vector_mmr_weight: float, 
-            fts_max_score: float
-     ):
+            self,
+            fts_store,
+            vector_store,
+            fts_weight: float,
+            vector_similarity_weight: float,
+            vector_mmr_weight: float,
+    ):
         """
-        Initialize the HybridRetriever.
+        Wire up the retriever with the two backends and their fusion weights.
+
+        Backend weights are kept as plain attributes so the dashboard can
+        mutate them at runtime (the agent picks up the new values on the
+        next search call without rebuilding the retriever).
+
+        Args:
+            fts_store: FTS5-backed keyword store (see FTSStore).
+            vector_store: Embedding-backed vector store (Chroma).
+            fts_weight (float): Multiplier applied to FTS scores.
+            vector_similarity_weight (float): Multiplier for Chroma similarity scores.
+            vector_mmr_weight (float): Multiplier for synthetic MMR rank scores.
         """
 
         self.fts = fts_store
@@ -43,36 +56,50 @@ class HybridRetriever:
         self.fts_weight = fts_weight
         self.vector_similarity_weight = vector_similarity_weight
         self.vector_mmr_weight = vector_mmr_weight
-        self.fts_max_score = fts_max_score
 
 
     def _hybrid_score(self, doc: SearchResult) -> float:
         """
-        Compute a unified hybrid score for ranking a single document.
-        """
-        
-        # Ensure we have a numeric score to work with, defaulting to 0 if None
-        raw_score = doc.score or 0  
+        Map a single backend-specific raw score onto a weighted [0, 1] scale.
 
-        # Scores from FTS5 BM25 are negative, smaller is better
+        Each retrieval backend produces scores on a different scale:
+            - fts               — negative BM25 (smaller = better),
+                                       normalised by fts_max_score.
+            - vector_similarity — Chroma cosine relevance in [0, 1].
+            - vector_mmr        — synthetic rank-based score in [0, 1].
+
+        Each is capped, normalised to [0, 1], and multiplied by the
+        corresponding backend weight.  Unknown backends are logged and
+        scored 0.0 so label drift is visible rather than silent.
+
+        Args:
+            doc (SearchResult): A single retrieved chunk.
+
+        Returns:
+            float: Weighted hybrid score used for ranking.
+        """
+
+        # Ensure we have a numeric score to work with, defaulting to 0 if None
+        raw_score = doc.score or 0
+
         if doc.backend == "fts":
-            # Cap at 0 to avoid positive scores.
-            norm_score = min(raw_score, 0)  
-            # Normalize to [0, 1] range, 1 being best score.
-            norm_score = abs(norm_score) / self.fts_max_score  
-            return norm_score * self.fts_weight
+            return raw_score * self.fts_weight
         
         # Chroma DB similarity search with relevance scores: 1 best, 0 worst.
         elif doc.backend == "vector_similarity":
             norm_score = max(raw_score, 0)
             return norm_score * self.vector_similarity_weight
 
-        # # Synthetic score based on rank: Best rank (i=0) gets highest score (score = (1 - (i / k))).
+        # Synthetic score based on rank: Best rank (i=0) gets highest score (score = (1 - (i / k))).
         elif doc.backend == "vector_mmr":
             norm_score = max(raw_score, 0)
             return norm_score * self.vector_mmr_weight
 
-        # fallback for unknown backend
+        # Fallback for unknown backend — log so silent label drift is visible.
+        logger.warning(
+            f"_hybrid_score: unknown backend {doc.backend!r} (chunk_id={doc.chunk_id}); "
+            "scoring as 0.0."
+        )
         return 0.0
 
 
@@ -161,17 +188,28 @@ class HybridRetriever:
         else:
             raise ValueError(f"Unknown vector search method: {vector_search_method}")
 
-        # Convert vector results to SearchResult format
+        # Convert vector results to SearchResult format.  Every typed
+        # ChunkMetadata field is pulled from obj.metadata so vector hits
+        # carry the same typed-field surface as FTS hits.
         vector_results = []
-        for obj, score in vector_result_objects:       
+        for obj, score in vector_result_objects:
             vector_results.append(
                 SearchResult(
                     page_content = obj.page_content,
                     source = obj.metadata.get("source"),
+                    doc_hash_id = obj.metadata.get("doc_hash_id"),
+                    filename = obj.metadata.get("filename"),
+                    file_type = obj.metadata.get("file_type"),
+                    folder = obj.metadata.get("folder"),
+                    doc_word_count = obj.metadata.get("doc_word_count"),
+                    doc_char_count = obj.metadata.get("doc_char_count"),
+                    ingested_at = obj.metadata.get("ingested_at"),
                     category = obj.metadata.get("category"),
+                    language = obj.metadata.get("language"),
                     chunk_id = obj.metadata.get("chunk_id"),
-                    start_char = obj.metadata.get("start_char"),
-                    end_char = obj.metadata.get("end_char"),
+                    chunk_hash_id = obj.metadata.get("chunk_hash_id"),
+                    chunk_start_char = obj.metadata.get("chunk_start_char"),
+                    chunk_end_char = obj.metadata.get("chunk_end_char"),
                     metadata = obj.metadata,
                     score = score,
                     backend = backend_label
@@ -183,7 +221,7 @@ class HybridRetriever:
         unique_dict = {}   
         
         for item in combined_results:
-            item_key = item.page_content 
+            item_key = item.chunk_hash_id
         
             if item_key not in unique_dict:
                 unique_dict[item_key] = item  

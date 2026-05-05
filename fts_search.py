@@ -6,7 +6,7 @@ Features:
     - Stores and indexes document chunks with metadata.
     - Supports single-mode (keyword, phrase, prefix) searches.
     - Supports multi-mode search with combined scores (score fusion).
-    - Returns results as `SearchResult` objects compatible with LangGraph tools.
+    - Returns results as SearchResult objects compatible with LangGraph tools.
 """
 
 # Standard library
@@ -16,6 +16,41 @@ import sqlite3
 
 # Local imports
 from pydantic_models import SearchResult
+
+
+# ---------------------------------------------------------------------------
+# FTS5 schema
+# ---------------------------------------------------------------------------
+
+# Columns of the FTS5 virtual table, in declaration order.  This single tuple
+# drives the CREATE/INSERT/SELECT SQL and the row-to-SearchResult mapping, so
+# adding or removing a column is a one-place edit here (plus matching changes
+# to ChunkMetadata / SearchResult in pydantic_models.py).
+_FTS_COLUMNS = (
+    "page_content",
+    "source",
+    "doc_hash_id",
+    "filename",
+    "file_type",
+    "folder",
+    "doc_word_count",
+    "doc_char_count",
+    "ingested_at",
+    "category",
+    "language",
+    "chunk_id",
+    "chunk_hash_id",
+    "chunk_start_char",
+    "chunk_end_char",
+    "metadata",
+)
+
+# Columns accepted as metadata-filter keys in search queries.  Excludes
+# page_content (the FTS search target) and metadata (a JSON blob).
+_FILTERABLE_COLUMNS = frozenset(_FTS_COLUMNS) - {"page_content", "metadata"}
+
+_FTS_COLUMNS_CSV = ", ".join(_FTS_COLUMNS)
+_FTS_PLACEHOLDERS = ", ".join(["?"] * len(_FTS_COLUMNS))
 
 
 class FTSStore:
@@ -29,7 +64,7 @@ class FTSStore:
         - Perform multi-mode FTS searches with weighted score fusion.
     """
 
-    def __init__(self, db_path="fts.db"):
+    def __init__(self, db_path="fts.db", fts_max_score=20.0):
         """
         Initialize the FTSStore instance.
 
@@ -37,9 +72,10 @@ class FTSStore:
             db_path (str): Path to the SQLite database file. Defaults to "fts.db".
         """
 
-        self.conn = sqlite3.connect(db_path, check_same_thread=False) 
-        self.cur = self.conn.cursor() 
-        self._init() 
+        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.cur = self.conn.cursor()
+        self.fts_max_score = fts_max_score
+        self._init()
 
 
     def _init(self):
@@ -50,26 +86,9 @@ class FTSStore:
         full-text search queries.
         """
 
-        self.cur.execute("""
-            CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5(
-                page_content,
-                source,
-                doc_hash_id,
-                filename,
-                file_type,
-                folder,
-                doc_word_count,
-                doc_char_count,
-                ingested_at,
-                category,
-                language,
-                chunk_id,
-                chunk_hash_id,
-                chunk_start_char,
-                chunk_end_char,
-                metadata
-            )
-        """)
+        self.cur.execute(
+            f"CREATE VIRTUAL TABLE IF NOT EXISTS docs USING fts5({_FTS_COLUMNS_CSV})"
+        )
         self.conn.commit()
 
   
@@ -82,53 +101,27 @@ class FTSStore:
 
         Notes:
             - Metadata dictionary is serialized as JSON for storage.
-            - If `chunk_id` is missing, the index in the list is used as fallback.
+            - If chunk_id is missing, the index in the list is used as fallback.
         """
 
         batch = []
         for i, chunk in enumerate(chunks):
             meta = chunk.metadata
-            batch.append((
-                chunk.page_content,
-                meta.get("source"),
-                meta.get("doc_hash_id"),
-                meta.get("filename"),
-                meta.get("file_type"),
-                meta.get("folder"),
-                meta.get("doc_word_count"),
-                meta.get("doc_char_count"),
-                meta.get("ingested_at"),
-                meta.get("category"),
-                meta.get("language"),
-                meta.get("chunk_id", i),
-                meta.get("chunk_hash_id"),
-                meta.get("chunk_start_char"),
-                meta.get("chunk_end_char"),
-                json.dumps(meta)
-            ))
+            # Build a value-by-column dict, then materialize the tuple in
+            # _FTS_COLUMNS order.  page_content and metadata are sourced
+            # explicitly (they are not flat metadata fields), and chunk_id
+            # falls back to the enumerate index when the chunk lacks one.
+            values = dict(meta)
+            values["page_content"] = chunk.page_content
+            values["metadata"] = json.dumps(meta)
+            values.setdefault("chunk_id", i)
+            batch.append(tuple(values.get(col) for col in _FTS_COLUMNS))
 
-        self.cur.executemany("""
-            INSERT INTO docs (
-                page_content,
-                source,
-                doc_hash_id,
-                filename,
-                file_type,
-                folder,
-                doc_word_count,
-                doc_char_count,
-                ingested_at,
-                category,
-                language,
-                chunk_id,
-                chunk_hash_id,
-                chunk_start_char,
-                chunk_end_char,
-                metadata
-            ) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, batch)  
-        self.conn.commit() 
+        self.cur.executemany(
+            f"INSERT INTO docs ({_FTS_COLUMNS_CSV}) VALUES ({_FTS_PLACEHOLDERS})",
+            batch,
+        )
+        self.conn.commit()
 
 
     def search_single(self, query, k=3, metadata_filters=None, use_phrase=False, use_prefix=False): 
@@ -139,7 +132,9 @@ class FTSStore:
             query (str): Search query string.
             k (int): Maximum number of results to return. Defaults to 3.
             metadata_filters (dict, optional): Key-value filters on metadata.
-                Allowed keys: "source", "category", "chunk_id", "chunk_start_char", "chunk_end_char".
+                Allowed keys are every column in _FTS_COLUMNS except
+                page_content (the search target) and metadata (a JSON blob).
+                Unknown keys are silently dropped.
             use_phrase (bool): If True, search for the exact phrase.
             use_prefix (bool): If True, search using prefix matching (query*).
 
@@ -161,62 +156,45 @@ class FTSStore:
         elif use_prefix:
             fts_query = f'{sanitized}*'
         
-        # Base SQL query
-        sql = """
-            SELECT page_content, source, doc_hash_id, filename, file_type, folder, doc_word_count, 
-                    doc_char_count, ingested_at, category, language, chunk_id, chunk_hash_id, 
-                    chunk_start_char, chunk_end_char, metadata, bm25(docs) as score
+        # Base SQL query: every column in _FTS_COLUMNS plus the BM25 score.
+        sql = f"""
+            SELECT {_FTS_COLUMNS_CSV}, bm25(docs) as score
             FROM docs
             WHERE docs MATCH ?
-        """                                
+        """
 
-        params = [fts_query] 
+        params = [fts_query]
 
-        # Apply optional metadata filters
-        allowed = {"source", "doc_hash_id", "filename", "file_type", "folder", "doc_word_count", 
-                    "doc_char_count", "ingested_at", "category", "language", "chunk_id", "chunk_hash_id", 
-                    "chunk_start_char", "chunk_end_char"}  
-          
+        # Apply optional metadata filters (silently dropping unknown keys).
         if metadata_filters:
             for key, value in metadata_filters.items():
-                if key in allowed:
+                if key in _FILTERABLE_COLUMNS:
                     sql += f" AND {key} = ?"
                     params.append(value)
-                    
+
         # Order by score (ascending because lower BM25 is better using SQLite's bm25 function)
         sql += " ORDER BY score ASC"
 
         # Limit number of results
-        sql += " LIMIT ?"  
+        sql += " LIMIT ?"
         params.append(k)
 
         # Execute query and fetch results - WHERE docs MATCH ? AND source = ? AND category = ? LIMIT ?
         self.cur.execute(sql, params)
         rows = self.cur.fetchall()
 
-        # Convert rows to SearchResult objects
+        # Convert rows to SearchResult objects.  The row layout is
+        # (*_FTS_COLUMNS, bm25_score) — zip the column names back onto the
+        # values, decode the metadata JSON blob, and splat into SearchResult.
         results = []
         for row in rows:
+            row_dict = dict(zip(_FTS_COLUMNS, row))
+            row_dict["metadata"] = json.loads(row_dict["metadata"]) if row_dict["metadata"] else {}
             results.append(
                 SearchResult(
-                    page_content = row[0], 
-                    source = row[1], 
-                    doc_hash_id = row[2],
-                    filename = row[3],
-                    file_type = row[4],
-                    folder = row[5],
-                    doc_word_count = row[6],
-                    doc_char_count = row[7],
-                    ingested_at = row[8],
-                    category = row[9],
-                    language = row[10],
-                    chunk_id = row[11],
-                    chunk_hash_id = row[12],
-                    chunk_start_char = row[13],
-                    chunk_end_char = row[14],
-                    metadata = json.loads(row[15]) if row[15] else {},
-                    score = row[16] or 0,
-                    backend = "fts"
+                    **row_dict,
+                    score = abs(min(row[-1] or 0, 0)) / self.fts_max_score,
+                    backend = "fts",
                 )
             )
         return results
@@ -262,14 +240,17 @@ class FTSStore:
 
         unique_dict_fts = {}
 
-
-        # Helper: adds results into unique_dict_fts and applies weight
         def add_results(results, weight):
+            """
+            Merge results into unique_dict_fts under a weighted score.
+
+            Each result is keyed by (page_content, chunk_id) so the same
+            chunk hit by multiple modes (keyword + phrase + prefix) is
+            deduplicated and its weighted contributions are summed.
+            """
             for result in results:
                 result_key = (result.page_content, result.chunk_id)
-
-                # invert bm25 (lower = better → higher = better)
-                match_score = (1.0 / (result.score + 1e-6)) * weight
+                match_score = result.score * weight
 
                 if result_key not in unique_dict_fts:
                     unique_dict_fts[result_key] = [result, match_score]

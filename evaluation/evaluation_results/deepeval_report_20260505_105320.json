@@ -1,0 +1,2105 @@
+{
+  "generated_at": "2026-05-05T10:53:20",
+  "dataset_path": "C:\\Users\\kjosi\\Langgraph\\HybridSearchAgent_LangGraph\\evaluation\\eval_cases.json",
+  "judge_model": "gpt-4o-mini",
+  "threshold": 0.5,
+  "gate_thresholds": {
+    "judge_threshold": 0.5,
+    "metadata_match_threshold": 0.8,
+    "required_keyword_threshold": 0.5
+  },
+  "summary": {
+    "case_count": 16,
+    "pass_count": 14,
+    "pass_rate": 0.875,
+    "avg_hit_at_k": 1.0,
+    "avg_mrr": 0.969,
+    "avg_precision_at_k": 0.754,
+    "avg_recall_at_k": 0.938,
+    "avg_ndcg_at_k": 0.955,
+    "avg_metadata_match_ratio": 1.0,
+    "avg_chunk_hit_at_k": 1.0,
+    "avg_chunk_mrr": 0.969,
+    "avg_chunk_precision_at_k": 0.556,
+    "avg_chunk_recall_at_k": 0.938,
+    "avg_chunk_ndcg_at_k": 0.954,
+    "avg_judge_run_score": 0.695,
+    "avg_agent_input_tokens": 3050.0,
+    "avg_agent_output_tokens": 131.0,
+    "avg_agent_total_tokens": 3180.0,
+    "avg_judge_input_tokens": 10195.0,
+    "avg_judge_output_tokens": 1998.0,
+    "avg_judge_total_tokens": 12193.0,
+    "avg_latency_seconds": 3.37,
+    "avg_retrieval_latency_seconds": 0.3,
+    "avg_llm_latency_seconds": 3.064,
+    "judge_model": "gpt-4o-mini",
+    "enabled_groups": [
+      "chunk",
+      "judge",
+      "source"
+    ],
+    "metric_averages": {
+      "answer_relevancy": 0.8958,
+      "contextual_precision": 0.8833,
+      "contextual_recall": 0.9063,
+      "contextual_relevancy": 0.4502,
+      "correctness_g_eval": 0.6687,
+      "faithfulness": 0.9844,
+      "hallucination": 0.0729
+    }
+  },
+  "results": [
+    {
+      "id": "Population and capital",
+      "question": "What is Norway's approximate population, and what is its capital city?",
+      "category": "Factual",
+      "notes": "Core factual lookup. Answer is present in multiple documents — tests basic retrieval and aggregation across sources.",
+      "prompt_used": "What is Norway's approximate population, and what is its capital city?\n\nEvaluation constraints:\n- Answer concisely and include a short Evidence section.",
+      "expected_output": "Norway has approximately 5.5 million people. The capital city is Oslo.",
+      "answer": "Norway has an approximate population of around 5.5 million people, and its capital city is Oslo.\n\n**Evidence:**\n1. Source: `norway_facts.txt`, Chunk ID: 0\n2. Source: `norway_facts.docx`, Chunk ID: 9\n3. Source: `norway_population.pdf`, Chunk ID: 0",
+      "latency_seconds": 2.77,
+      "retrieval_latency_seconds": 1.48,
+      "llm_latency_seconds": 1.29,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_facts.txt",
+        "norway_facts.docx",
+        "norway_population.pdf",
+        "norway_population.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8452753577078088,
+          "snippet": "Norway’s population is relatively small compared to its large geographic area, with about 5.5 million\nresidents.\nMost people live in urban areas, particularly around Oslo, Bergen, and Trondheim, while large parts\nof the country remain sparsely populated."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 9,
+          "backend": "vector_similarity",
+          "score": 0.8289354249351961,
+          "snippet": "The population of approximately 5.5 million people is primarily concentrated in urban centers, with the capital, Oslo, serving as the most diverse and populous city. The official language is Norwegian, which is unique for having two distinct written standards: Bokmål (used by the majority) and"
+        },
+        {
+          "source": "norway_facts.txt",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8200814889545428,
+          "snippet": "Norway is a Scandinavian country located in Northern Europe, known for its dramatic landscapes and high quality of life. \nIt has a population of around 5.5 million people and a capital city called Oslo."
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.8148995971504012,
+          "snippet": "Norway possesses a unique demographic profile characterized by a relatively small population of approximately 5.5 million people living in a vast, rugged territory. This results in one of the lowest population densities in Europe, with an average of only 14 people per square kilometer. However,"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 1.0,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.781,
+      "agent_input_tokens": 2810,
+      "agent_output_tokens": 102,
+      "agent_total_tokens": 2912,
+      "judge_input_tokens": 9589,
+      "judge_output_tokens": 1511,
+      "judge_total_tokens": 11100,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no irrelevant statements in the output, providing a direct response to the input query about Norway's population and capital.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions, indicating that the actual output is fully aligned with the retrieval context. Great job ensuring consistency!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes are ranked higher than any irrelevant nodes, ensuring direct answers to both parts of the question about Norway's population and capital city. The first node states that 'It has a population of around 5.5 million people and a capital city called Oslo,' effectively addressing the query. The second node reinforces this by noting 'The population of approximately 5.5 million people' while also confirming 'the capital, Oslo,' creating a strong alignment with the input. Lastly, the third node adds depth by providing context about Norway's population size, affirming the relevance of Oslo. Since there are no irrelevant nodes, the precision remains high and well-justified.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all sentences in the expected output are fully supported by the information in node 1 of the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because while the relevant statements include 'Norway has a population of around 5.5 million people.' and 'Its capital city is called Oslo.', additional context about landscapes and quality of life detracts from the direct response needed for the input question.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions present, and all factual alignments indicate accurate information regarding Norway's population and capital.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.8,
+          "reason": "The response provides a clear and complete answer to the user's request by accurately stating Norway's population and capital. It meets the criteria for clarity and completeness as outlined in the evaluation steps. Additionally, the evidence section supports the information provided, giving credibility to the claims made. However, while the information is accurate, it could be presented more concisely to align perfectly with the expected output structure, which separates the population and capital into distinct sentences. Therefore, the response is solid but could be improved for conciseness.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Written language forms",
+      "question": "What are the two official written forms of the Norwegian language?",
+      "category": "Factual",
+      "notes": "Tests exact factual recall. 'Nynorsk' is used as the sole required keyword to avoid special-character matching issues with 'Bokmål' in some execution environments.",
+      "prompt_used": "What are the two official written forms of the Norwegian language?\n\nEvaluation constraints:\n- Answer in one sentence and include an Evidence section.",
+      "expected_output": "The two written forms are Bokmål and Nynorsk. Bokmål is used by the majority, while Nynorsk is based on regional dialects.",
+      "answer": "The two official written forms of the Norwegian language are Bokmål and Nynorsk.\n\n**Evidence:**\n- Source: documents\\norway_facts.docx, Chunk ID: 10",
+      "latency_seconds": 2.2,
+      "retrieval_latency_seconds": 0.81,
+      "llm_latency_seconds": 1.39,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_facts.txt",
+        "norway_facts.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 14,
+          "backend": "vector_similarity",
+          "score": 0.7900331883366405,
+          "snippet": "period, political power was largely centered in Copenhagen, and Norway was often treated as a subordinate partner. Danish became the written language of administration, which later influenced the development of modern Norwegian written forms."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 10,
+          "backend": "vector_similarity",
+          "score": 0.7702165409569398,
+          "snippet": "standards: Bokmål (used by the majority) and Nynorsk (based on regional dialects). English proficiency is exceptionally high, with nearly 89% of the population speaking it fluently."
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 27,
+          "backend": "vector_similarity",
+          "score": 0.7639945913720948,
+          "snippet": "Statistics Norway (ssb.no)\n\nNorwegian Government official publications (regjeringen.no)"
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 9,
+          "backend": "vector_similarity",
+          "score": 0.7563218840412321,
+          "snippet": "The population of approximately 5.5 million people is primarily concentrated in urban centers, with the capital, Oslo, serving as the most diverse and populous city. The official language is Norwegian, which is unique for having two distinct written standards: Bokmål (used by the majority) and"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 0.5,
+      "precision_at_k": 0.5,
+      "recall_at_k": 0.5,
+      "ndcg_at_k": 0.651,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 0.5,
+      "chunk_precision_at_k": 0.5,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 0.651,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.631,
+      "agent_input_tokens": 2803,
+      "agent_output_tokens": 65,
+      "agent_total_tokens": 2868,
+      "judge_input_tokens": 9408,
+      "judge_output_tokens": 1496,
+      "judge_total_tokens": 10904,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly answers the question about the two official written forms of the Norwegian language without any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions identified, indicating that the actual output is entirely faithful to the retrieval context. Great job!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 0.5,
+          "reason": "The score is 0.50 because although the second node directly addresses the query by stating the two official written forms, the presence of two irrelevant nodes (first and third) ranked higher means that most retrieved contexts do not align with the query topic. Specifically, the first node, ranked first, is particularly misleading as it mentions historical context without mentioning the forms, while the third node, ranked lower than the second, also fails to provide the sought-after specifics.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because the first and second nodes in the retrieval context effectively support the sentences about Bokmål and Nynorsk, highlighting their usage and origins; however, the lack of additional context regarding the structure or usage limits the overall relevance.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.25,
+          "reason": "The score is 0.25 because, while the relevant statement identifies 'Bokmål' and 'Nynorsk' as the two official written forms of Norwegian, the majority of the retrieval context focuses on unrelated topics such as 'English proficiency' and efforts to develop a distinct language, which do not address the input question directly.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.5,
+          "reason": "The score is 0.50 because the actual output correctly aligns with the existence of Bokmål and Nynorsk but omits critical details about their usage and characteristics, leading to a moderate level of incomplete information.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.5,
+          "reason": "The response accurately identifies the two official written forms of the Norwegian language but lacks detail about their usage and origins, which are crucial elements in the Expected Output. Additionally, the Evidence section mentions a document source, but does not support the distinction made in the Expected Output about Bokmål being used by the majority and Nynorsk being based on regional dialects.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Friluftsliv and allemannsretten",
+      "question": "What does 'friluftsliv' mean in Norwegian culture, and what legal principle supports it?",
+      "category": "Concept",
+      "notes": "Tests cultural concept retrieval and grounding. use_phrase=true is appropriate since 'open-air living' is a specific multi-word term in the source. Allemannsretten is precise enough that its presence confirms the right chunk was retrieved.",
+      "prompt_used": "What does 'friluftsliv' mean in Norwegian culture, and what legal principle supports it?\n\nEvaluation constraints:\n- Answer in 2–3 sentences and include an Evidence section.",
+      "expected_output": "Friluftsliv means open-air living and reflects a deep cultural philosophy of returning to nature for spiritual and physical well-being. The concept was popularized by playwright Henrik Ibsen in the 1850s. Allemannsretten (the Right of Public Access) grants anyone the right to hike, camp, and forage on uncultivated land regardless of ownership.",
+      "answer": "In Norwegian culture, \"friluftsliv\" translates to \"open-air living\" and embodies a deep appreciation for outdoor activities such as hiking, skiing, and camping. This concept is integral to the Norwegian identity, promoting a lifestyle that values nature and outdoor experiences. The legal principle supporting this cultural practice is the \"Right to Roam\" (allemannsretten), which grants the public access to uncultivated land for recreational purposes.\n\n**Evidence:**\n1. Source: documents\\norway_culture_modern_life.docx, Chunk ID: 1\n2. Source: documents\\norway_fun_facts.pdf, Chunk ID: 1",
+      "latency_seconds": 3.43,
+      "retrieval_latency_seconds": 0.22,
+      "llm_latency_seconds": 3.21,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": true,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_culture_modern_life.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.8240854817099262,
+          "snippet": "Norway is a nation defined by its relationship with the rugged outdoors. Central to the Norwegian identity is the concept of \"friluftsliv\" (pronounced free-loofts-leev). Translated literally as \"open-air living,\" the term was popularized by the famous playwright Henrik Ibsen in the 1850s. It"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8061647681636397,
+          "snippet": "The Heart of Norway – Culture, Folklore, and Modern Life\n\nThe Philosophy of Friluftsliv and Outdoor Culture"
+        },
+        {
+          "source": "norway_fun_facts.pdf",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.7724034777058973,
+          "snippet": "the northern regions.\nNorwegians have a strong outdoor culture and enjoy activities like hiking, skiing, and camping.\nThere is even a concept called \"friluftsliv,\" which means open-air living.\nAdditionally, Norway has one of the world’s largest sovereign wealth funds, built from its oil\nrevenues."
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 22,
+          "backend": "vector_similarity",
+          "score": 0.7656587596855475,
+          "snippet": "Sources\n\nVisit Norway - The Norwegian Right to Roam\n\nForbes - Friluftsliv: The Nordic Secret to Resilience\n\nUNESCO World Heritage Centre - West Norwegian Fjords\n\nThe Guardian - Why Norway’s Trolls are making a comeback\n\nNorges Bank Investment Management - About the Fund"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.7653027452561759,
+          "snippet": "This is not just a hobby; it is a way of life supported by the legal principle of Allemannsretten (the Right of Public Access). This traditional right allows anyone to hike, camp, and forage for berries or mushrooms on uncultivated land, regardless of ownership. Whether it is \"Sunday trips\""
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.8,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.956,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 1.0,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.78,
+      "agent_input_tokens": 2867,
+      "agent_output_tokens": 166,
+      "agent_total_tokens": 3033,
+      "judge_input_tokens": 10697,
+      "judge_output_tokens": 2164,
+      "judge_total_tokens": 12861,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly answered the question about 'friluftsliv' in Norwegian culture and included relevant information about the legal principle supporting it, without any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating that the actual output aligns perfectly with the information in the retrieval context. Great job maintaining accuracy!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because both relevant nodes rank higher than the irrelevant node, showcasing a strong correlation between context and relevance. The first node at rank 1 discusses 'friluftsliv' as 'open-air living' and its connection to Norwegian culture, making it highly relevant, while the irrelevant node at rank 3 focuses more on activities than cultural meaning.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because every element in the expected output is fully supported by the relevant nodes in retrieval context, illustrating a perfect alignment with the topics of friluftsliv, its cultural significance, and historical context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.4286,
+          "reason": "The score is 0.43 because although the input seeks an understanding of 'friluftsliv' and its legal principles, much of the context does not directly address these questions. Relevant statements mention that 'friluftsliv' is 'translated literally as \"open-air living\"' and highlight Norwegians' strong outdoor culture, yet important legal aspects remain unexplained.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.3333,
+          "reason": "The score is 0.33 because while the actual output aligns with key aspects of the context regarding friluftsliv and allemansretten, it fails to mention the important historical detail about Henrik Ibsen, indicating a partial understanding.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output accurately defines 'friluftsliv' and includes the legal principle of 'Right to Roam,' addressing the user's request. However, it lacks specific historical context, such as the mention of Henrik Ibsen, which is a key detail in the expected output. While the response is coherent and relevant, the omission of this historical aspect and the less expressive definition compared to the expected output indicates some shortcomings.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Midnight sun and polar night",
+      "question": "What are the Midnight Sun and Polar Night phenomena in Norway?",
+      "category": "Concept",
+      "notes": "Improved from original: required keywords changed from the fragile prose phrase 'sun does not set' to stable, retrievable tokens ('Arctic Circle', 'Northern Lights') that are unambiguous in the source material.",
+      "prompt_used": "What are the Midnight Sun and Polar Night phenomena in Norway?\n\nEvaluation constraints:\n- Explain both phenomena briefly in 2–3 sentences and include an Evidence section.",
+      "expected_output": "North of the Arctic Circle, the sun stays above the horizon for up to 76 days during summer — this is the Midnight Sun. In winter, the Polar Night brings complete darkness, providing ideal conditions to see the Northern Lights.",
+      "answer": "In Norway, the **Midnight Sun** is a natural phenomenon occurring in the summer months, particularly in regions above the Arctic Circle, where the sun remains visible for 24 hours a day for several weeks. This results in continuous daylight, significantly affecting the lifestyle and energy levels of the local population. Conversely, the **Polar Night** occurs in winter, when these same regions experience prolonged darkness, with the sun not rising above the horizon for an extended period, leading to a unique and often stark winter landscape.\n\n### Evidence\n1. \"In the northern regions, the tilt of the Earth creates the phenomenon of the Midnight Sun. North of the Arctic Circle, in places like Tromsø or the North Cape, the sun stays above the horizon for up to 76 days during the summer.\" (Source: norway_culture_modern_life.docx, Chunk ID: 9)\n2. \"the winter and the 'Midnight Sun' in the summer, where areas above the Arctic Circle experience 24 hours of daylight.\" (Source: norway_facts.docx, Chunk ID: 5)",
+      "latency_seconds": 5.45,
+      "retrieval_latency_seconds": 0.2,
+      "llm_latency_seconds": 5.25,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_culture_modern_life.docx",
+        "norway_fun_facts.pdf"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 6,
+          "backend": "vector_similarity",
+          "score": 0.8585264322467552,
+          "snippet": "Natural Wonders: Fjords and the Midnight Sun"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 9,
+          "backend": "vector_similarity",
+          "score": 0.8234390754943146,
+          "snippet": "In the northern regions, the tilt of the Earth creates the phenomenon of the Midnight Sun. North of the Arctic Circle, in places like Tromsø or the North Cape, the sun stays above the horizon for up to 76 days during the summer. This constant daylight leads to a surge of energy in the population,"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 10,
+          "backend": "vector_similarity",
+          "score": 0.8143723822223784,
+          "snippet": "leads to a surge of energy in the population, with people mowing their lawns or going for hikes at 2:00 AM. Conversely, the winter brings the Polar Night, where the sun never rises, providing the perfect dark canvas for the flickering green and violet ribbons of the Northern Lights."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 5,
+          "backend": "vector_similarity",
+          "score": 0.8123778669102973,
+          "snippet": "the winter and the \"Midnight Sun\" in the summer, where areas above the Arctic Circle experience 24 hours of daylight."
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 23,
+          "backend": "vector_similarity",
+          "score": 0.8052692740733287,
+          "snippet": "Science Norway - The history of the frozen pizza in Norway\n\nNorway.no - The Midnight Sun and Polar Night\n\nLife in Norway - 10 Norwegian Folklore Creatures\n\nBritannica - Geography and Culture of Norway\n\nWorld Population Review - Norway Happiness and Human Development"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.8,
+      "recall_at_k": 0.5,
+      "ndcg_at_k": 0.983,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 1.0,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.5,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.721,
+      "agent_input_tokens": 2812,
+      "agent_output_tokens": 257,
+      "agent_total_tokens": 3069,
+      "judge_input_tokens": 10464,
+      "judge_output_tokens": 2057,
+      "judge_total_tokens": 12521,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the answer directly addresses the input, providing a clear and concise explanation of the Midnight Sun and Polar Night phenomena in Norway without any irrelevant information.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 0.75,
+          "reason": "The score is 0.75 because the actual output incorrectly interprets the context's statement about the sun being above the horizon for up to 76 days as it being visible for 24 hours continuously, which misrepresents the information.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all the relevant nodes effectively provide detailed information about the Midnight Sun phenomenon, with the first node specifically stating that 'North of the Arctic Circle, in places like Tromsø or the North Cape, the sun stays above the horizon for up to 76 days during the summer.' The presence of irrelevant nodes that only vaguely mention the Midnight Sun, like the third node, which lacks the necessary details about the Polar Night phenomenon, ranks them lower than the relevant nodes.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all elements of the expected output are clearly supported by the information in the nodes in retrieval context, particularly the references to the Midnight Sun and the conditions for viewing the Northern Lights.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.6,
+          "reason": "The score is 0.60 because while the retrieval context does include relevant information about the Midnight Sun, such as its occurrence in the northern regions and its effect of continuous daylight ('In the northern regions, the tilt of the Earth creates the phenomenon of the Midnight Sun.'), it lacks a clear explanation of the phenomenon itself and fails to include details about the Polar Night. Statements like 'the winter and the Midnight Sun in the summer' show some connection but do not fully address the input's requirements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions present, and all factual alignments are accurately described in the actual output.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output effectively explains both the Midnight Sun and Polar Night phenomena in Norway, covering their occurrence and effects on local life. However, it lacks the part about ideal conditions to see the Northern Lights during Polar Night, which is a notable aspect mentioned in the expected output. Additionally, while the evidence supplied supports the explanation, it could have been more succinct and directly tied to the claims made in the output. Overall, the response shows good coverage but misses some critical details, which affects its overall accuracy and completeness.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Population distribution",
+      "question": "How is Norway's population distributed across the country?",
+      "category": "Factual",
+      "notes": "Tests multi-point geographic and statistical recall. 'Stavanger' appears only in the .docx variant, not the .pdf — its presence in the answer indicates the richer source was retrieved.",
+      "prompt_used": "How is Norway's population distributed across the country?\n\nEvaluation constraints:\n- Answer in 2–3 sentences and include an Evidence section.",
+      "expected_output": "Over 82% of Norwegians live in urban areas. The population is concentrated in the Oslofjord region, with Oslo as the primary hub, followed by Bergen, Trondheim, and Stavanger. Norway has one of the lowest population densities in Europe at approximately 14 people per square kilometer.",
+      "answer": "Norway's population, approximately 5.5 million, is unevenly distributed across its vast territory, resulting in one of the lowest population densities in Europe, averaging only 14 people per square kilometer. Most residents are concentrated in urban areas, particularly around cities like Oslo, Bergen, and Trondheim, while large regions remain sparsely populated.\n\n**Evidence:**\n1. Source: documents\\norway_population.pdf, Chunk ID: 0\n2. Source: documents\\norway_population.docx, Chunk ID: 1",
+      "latency_seconds": 3.44,
+      "retrieval_latency_seconds": 0.17,
+      "llm_latency_seconds": 3.27,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_population.docx",
+        "norway_population.pdf"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8703543973723069,
+          "snippet": "Norway’s population is relatively small compared to its large geographic area, with about 5.5 million\nresidents.\nMost people live in urban areas, particularly around Oslo, Bergen, and Trondheim, while large parts\nof the country remain sparsely populated."
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.8474286612716546,
+          "snippet": "Norway possesses a unique demographic profile characterized by a relatively small population of approximately 5.5 million people living in a vast, rugged territory. This results in one of the lowest population densities in Europe, with an average of only 14 people per square kilometer. However,"
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.841891376704157,
+          "snippet": "Analysis of the Norwegian Population and Social Structure\n\nI. Population Distribution and Urbanization"
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.8323797707626276,
+          "snippet": "Over 82% of Norwegians live in urban areas. The concentration is heaviest in the \"Oslofjord\" region in the southeast. Oslo, the capital, is the primary hub, followed by Bergen on the west coast, Trondheim in the north-central region, and Stavanger in the southwest. Between these hubs lie vast"
+        },
+        {
+          "source": "norway_facts.txt",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8190424216247795,
+          "snippet": "Norway is a Scandinavian country located in Northern Europe, known for its dramatic landscapes and high quality of life. \nIt has a population of around 5.5 million people and a capital city called Oslo."
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.8,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.4,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 0.877,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.667,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.752,
+      "agent_input_tokens": 2783,
+      "agent_output_tokens": 137,
+      "agent_total_tokens": 2920,
+      "judge_input_tokens": 9951,
+      "judge_output_tokens": 1858,
+      "judge_total_tokens": 11809,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response was completely relevant, directly addressing the distribution of Norway's population and including an evidence section that supported the claims made.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating that the actual output is perfectly aligned with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes are ranked above any irrelevant nodes, which in this case do not exist. This indicates a perfect retrieval where each node effectively contributes to the understanding of Norway's population distribution.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all statements in the expected output are well-supported by the information from nodes in the retrieval context, confirming the urban living conditions, population distribution, and the low population density in Norway.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because although the relevant statements indicate that \"Most people live in urban areas\" and describe population characteristics, the retrieval context still included irrelevant information that did not directly answer the query about population distribution, leading to a reduced relevancy score.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions present in the actual output, and it aligns perfectly with all provided factual contexts.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.6,
+          "reason": "The actual output provides a general overview of Norway's population distribution, mentioning urban concentration and population density, which aligns with the user's request. However, it lacks the specific statistic that over 82% of the population lives in urban areas, which is a crucial element of the expected output. Additionally, it misses the emphasis on the Oslofjord region as the primary hub and does not cite Stavanger, which further detracts from full alignment with the expected response. While evidence is included, without fully addressing all key points, the scoring is limited.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Population profile",
+      "question": "Using only the norway_population.pdf material, summarize Norway's population profile in 2–3 sentences.",
+      "category": "Filtered",
+      "notes": "Explicit metadata filter test. Disallowed keywords are statistics that exist only in the .docx variant ('82%', 'Stavanger', '83.2 years', '19-20%') — their appearance would confirm the filter failed or the agent drew from the wrong source.",
+      "prompt_used": "Using only the norway_population.pdf material, summarize Norway's population profile in 2–3 sentences.\n\nEvaluation constraints:\n- Use 2–3 sentences and include a short Evidence section.\n- If you use retrieval filters, constrain the search to: filename=norway_population.pdf.",
+      "expected_output": "Norway has about 5.5 million residents. Most people live in urban areas around Oslo, Bergen, and Trondheim. The country has a low population density, high life expectancy, and a strong welfare system.",
+      "answer": "Norway's population is approximately 5.5 million, with a significant concentration in urban areas such as Oslo, Bergen, and Trondheim, while much of the country remains sparsely populated. The population enjoys a high life expectancy and low density, contributing to ample space per person. Additionally, recent decades have seen increased diversity due to immigration, alongside high education levels and nearly universal literacy rates.\n\n**Evidence:**\n1. Source: norway_population.pdf, Chunk ID: 0\n2. Source: norway_population.pdf, Chunk ID: 1\n3. Source: norway_population.pdf, Chunk ID: 2",
+      "latency_seconds": 3.17,
+      "retrieval_latency_seconds": 0.19,
+      "llm_latency_seconds": 2.98,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {
+        "filename": "norway_population.pdf"
+      },
+      "expected_sources": [
+        "norway_population.pdf"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.8465082478571616,
+          "snippet": "Norway’s population is relatively small compared to its large geographic area, with about 5.5 million\nresidents.\nMost people live in urban areas, particularly around Oslo, Bergen, and Trondheim, while large parts\nof the country remain sparsely populated."
+        },
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.7875605381016276,
+          "snippet": "of the country remain sparsely populated.\nThe population is known for its high life expectancy, which is among the highest in the world.\nNorway also has a low population density, meaning there is a lot of space per person."
+        },
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 2,
+          "backend": "vector_similarity",
+          "score": 0.7028071875499797,
+          "snippet": "Immigration has contributed to increased diversity in recent decades, with people from many\ndifferent cultural backgrounds settling in the country.\nEducation levels are high, and literacy rates are nearly universal."
+        },
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.700767743697386,
+          "snippet": "The population benefits from a strong welfare system that supports healthcare, education, and\nsocial security, contributing to a high standard of living."
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.5,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.5,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.814,
+      "agent_input_tokens": 2862,
+      "agent_output_tokens": 154,
+      "agent_total_tokens": 3016,
+      "judge_input_tokens": 10277,
+      "judge_output_tokens": 1897,
+      "judge_total_tokens": 12174,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly and accurately summarizes Norway's population profile using the specified material without including any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating that the actual output aligns perfectly with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes provide direct information about Norway's population profile, ranking higher than the irrelevant node which discusses immigration yet does not contribute useful content. This ensures the focus remains on essential population metrics, leading to a perfect score.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because every sentence in the expected output is directly supported by multiple nodes in the retrieval context, including specific details about Norway's population, urban living, and life expectancy.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant statements such as 'Norway’s population is relatively small compared to its large geographic area, with about 5.5 million residents,' provide key insights into Norway's population profile, making the context exceptionally relevant.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output fully aligns with the factual context provided, with no contradictions present.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The response accurately summarizes key elements of Norway's population profile, including population size, urban concentration, low density, and life expectancy. However, it includes additional information regarding immigration and literacy rates, which were not part of the expected output, leading to a slight deviation from the user's request for a concise summary. The response does meet the evidence requirement, but the extra details reduce alignment with the specified constraints.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Roald Amundsen",
+      "question": "What were Roald Amundsen's two most significant polar achievements?",
+      "category": "Factual",
+      "notes": "Tests precise attribution to Amundsen vs other famous Norwegians. Disallowed keywords ('Nansen', 'Kon-Tiki') catch confusion with Fridtjof Nansen or Thor Heyerdahl, whose entries appear nearby in the same document.",
+      "prompt_used": "What were Roald Amundsen's two most significant polar achievements?\n\nEvaluation constraints:\n- Answer in 1–2 sentences and include an Evidence section.",
+      "expected_output": "Amundsen led the first expedition to reach the South Pole in 1911. He was also the first to traverse the Northwest Passage.",
+      "answer": "Roald Amundsen's two most significant polar achievements are being the first person to reach the South Pole in 1911 and the first to successfully navigate the Northwest Passage. His expeditions were marked by innovative techniques learned from Indigenous peoples, which contributed to their success.\n\n**Evidence:**\n1. Source: documents\\norway_famous_norwegians.docx, Chunk ID: 2\n2. Source: documents\\norway_fun_facts.docx, Chunk ID: 9",
+      "latency_seconds": 2.85,
+      "retrieval_latency_seconds": 0.16,
+      "llm_latency_seconds": 2.69,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_famous_norwegians.docx",
+        "norway_fun_facts.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_famous_norwegians.docx",
+          "chunk_id": 2,
+          "backend": "vector_similarity",
+          "score": 0.84476381087072,
+          "snippet": "Roald Amundsen\n\n (1872–1928): A legendary polar explorer, Amundsen led the first expedition to reach the South Pole in 1911. He was also the first to traverse the Northwest Passage and the first to definitively reach both the North and South Poles.\n\n\n\n\n\n\n\nFridtjof Nansen"
+        },
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 9,
+          "backend": "vector_similarity",
+          "score": 0.8099543177537997,
+          "snippet": "Conquering the South Pole: In 1911, Roald Amundsen became the first person to reach the South Pole, beating the British expedition led by Robert Falcon Scott. Amundsen’s success was largely attributed to his willingness to learn from Indigenous Inuit techniques, such as using sled dogs and wearing"
+        },
+        {
+          "source": "norway_famous_norwegians.docx",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.7533642710938286,
+          "snippet": "Fridtjof Nansen\n\n (1861–1930): Beyond his famed Arctic expeditions on the ship Fram, Nansen was a Nobel Peace Prize laureate. He is celebrated for his humanitarian work with refugees following World War I, including the creation of the \"Nansen Passport\" for stateless persons."
+        },
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 11,
+          "backend": "vector_similarity",
+          "score": 0.7277148370550083,
+          "snippet": "The Kon-Tiki Expedition: In 1947, Thor Heyerdahl sailed 7,000 kilometers across the Pacific Ocean on a balsa wood raft named Kon-Tiki. He sought to prove that ancient people could have made long sea voyages, creating a moment of global fascination that won an Academy Award for its documentary."
+        },
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 8,
+          "backend": "vector_similarity",
+          "score": 0.7258730408485066,
+          "snippet": "II. Proud Moments in Exploration and Peace\n\nThe Norwegian spirit is characterized by a drive for discovery and a commitment to global diplomacy."
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.4,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.733,
+      "agent_input_tokens": 2934,
+      "agent_output_tokens": 128,
+      "agent_total_tokens": 3062,
+      "judge_input_tokens": 10262,
+      "judge_output_tokens": 1869,
+      "judge_total_tokens": 12131,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly addressed the question regarding Roald Amundsen's significant polar achievements without including any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating that the actual output perfectly aligns with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes directly address Amundsen's significant polar achievements, specifically mentioning his journey to the South Pole. The first node highlights that 'Amundsen led the first expedition to reach the South Pole in 1911' and the second node states that 'Roald Amundsen became the first person to reach the South Pole', while the irrelevant node in third place discusses 'Fridtjof Nansen' which is not related to Amundsen and is ranked lower due to its lack of relevance.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because each sentence in the expected output is directly aligned with node 1 in the retrieval context, affirming the facts about Amundsen's expeditions.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.4286,
+          "reason": "The score is 0.43 because while the retrieval context contains significant relevant statements about Amundsen, such as 'Amundsen led the first expedition to reach the South Pole in 1911,' it also includes much irrelevant information about Fridtjof Nansen that detracts from its overall relevance.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output completely aligns with the provided context, confirming all facts without any contradictions.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output accurately identifies Amundsen's significant achievements of reaching the South Pole in 1911 and traversing the Northwest Passage, which directly aligns with the expected output. However, it includes an unsupported claim regarding innovative techniques from Indigenous peoples, which is unnecessary and not mentioned in the expected output. This addition detracts from the clarity and focus of the response. Additionally, while the actual output provides evidence, it lacks direct citation from the specific sources referenced, which weakens its credibility slightly.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Constitution 1814",
+      "question": "When did Norway adopt its own constitution, and where was it drafted?",
+      "category": "Historical",
+      "notes": "Tests precise historical recall. Both history documents mention 1814; only the expanded version names Eidsvoll — a good indicator of which source was retrieved.",
+      "prompt_used": "When did Norway adopt its own constitution, and where was it drafted?\n\nEvaluation constraints:\n- Answer in one sentence and include an Evidence section.",
+      "expected_output": "The Norwegian constitution was adopted on May 17, 1814. It was drafted at Eidsvoll.",
+      "answer": "Norway adopted its own constitution on May 17, 1814, which was drafted at Eidsvoll.\n\n**Evidence:**\n- Source: documents\\norway_history_expanded.docx, Chunk ID: 16\n- Source: documents\\norway_history.docx, Chunk ID: 3",
+      "latency_seconds": 2.41,
+      "retrieval_latency_seconds": 0.16,
+      "llm_latency_seconds": 2.25,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_history_expanded.docx",
+        "norway_history.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_history.docx",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.8628503301190484,
+          "snippet": "In 1814, Norway adopted its own constitution, one of the oldest still in use today, although it remained in union with Sweden until 1905."
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 16,
+          "backend": "vector_similarity",
+          "score": 0.8557201264855059,
+          "snippet": "was on the losing side, and in 1814 Norway was ceded to Sweden. However, before this transfer was completed, Norwegian leaders seized the opportunity to declare independence and drafted a constitution at Eidsvoll. Adopted on May 17, 1814, this constitution is one of the oldest still in use today"
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 17,
+          "backend": "vector_similarity",
+          "score": 0.8120729976815938,
+          "snippet": "is one of the oldest still in use today and established Norway as a constitutional monarchy with principles such as separation of powers and individual rights."
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 18,
+          "backend": "vector_similarity",
+          "score": 0.8019793753722653,
+          "snippet": "Although Norway was forced into a union with Sweden later that same year, it retained its constitution and a significant degree of internal self-governance. Throughout the 19th century, national movements grew stronger, emphasizing Norwegian culture, language, and independence. This period saw the"
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.7926169376643281,
+          "snippet": "Norway: A Historical Overview"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.4,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.821,
+      "agent_input_tokens": 2782,
+      "agent_output_tokens": 90,
+      "agent_total_tokens": 2872,
+      "judge_input_tokens": 9320,
+      "judge_output_tokens": 1782,
+      "judge_total_tokens": 11102,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the output perfectly addressed the question regarding Norway's constitution without any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating a perfect alignment between the actual output and the retrieval context. Great job!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because both relevant nodes provide crucial details about Norway's constitution being 'drafted at Eidsvoll' and 'adopted on May 17, 1814,' which directly respond to the input. The first node is ranked highest as it contains direct quotes confirming both the drafting location and adoption date. In contrast, the third node, ranked lower, explicitly lacks pertinent information, stating it 'does not provide any relevant information' which prevents it from contributing to the score.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all crucial details in the original output about the Norwegian constitution's adoption date and drafting location are fully confirmed by the information found in node(s) in retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.75,
+          "reason": "The score is 0.75 because while the context provides relevant details such as 'Norway adopted its own constitution on May 17, 1814, and it was drafted at Eidsvoll', it includes irrelevant information like 'although it remained in union with Sweden until 1905' which distracts from the main inquiry.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output fully aligns with the provided context, confirming both the date of adoption and the drafting location of the Norwegian constitution, with no contradictions present.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 1.0,
+          "reason": "The Actual Output provides accurate information that aligns perfectly with the Expected Output by stating both the date of adoption and the location of drafting. It also meets the requirement of being concise and formatted correctly, including an Evidence section to support the claims made. Therefore, it successfully addresses the user's request and includes all significant details requested.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Lærdal tunnel",
+      "question": "How long is the Lærdal Tunnel, and what design feature was added to help drivers stay alert?",
+      "category": "Factual",
+      "notes": "Tests precise numerical and design-detail recall from a single source. use_phrase=true is appropriate because 'driver fatigue' is a specific phrase in the document that phrase-matching FTS should surface precisely.",
+      "prompt_used": "How long is the Lærdal Tunnel, and what design feature was added to help drivers stay alert?\n\nEvaluation constraints:\n- Answer in 1–2 sentences and include an Evidence section.",
+      "expected_output": "The Lærdal Tunnel is 24.5 kilometers long, making it the world's longest road tunnel. Blue-lit caverns were installed every six kilometers to simulate daylight and prevent driver fatigue and tunnel vision.",
+      "answer": "The Lærdal Tunnel is 24.5 kilometers long. To help drivers stay alert and prevent fatigue, blue-lit caverns were installed every six kilometers to simulate daylight or a sunrise.\n\n**Evidence:**\n- Source: documents\\norway_fun_facts.docx, Chunk ID: 14",
+      "latency_seconds": 2.97,
+      "retrieval_latency_seconds": 0.2,
+      "llm_latency_seconds": 2.77,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": true,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_fun_facts.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 14,
+          "backend": "vector_similarity",
+          "score": 0.7966493795424563,
+          "snippet": "III. Quirky Culture and Records\n\nThe World’s Longest Road Tunnel: The Lærdal Tunnel stretches for 24.5 kilometers. To prevent driver fatigue and \"tunnel vision,\" engineers installed blue-lit caverns every six kilometers to mimic the appearance of daylight or a sunrise."
+        },
+        {
+          "source": "norway_sites_to_visit.docx",
+          "chunk_id": 7,
+          "backend": "vector_similarity",
+          "score": 0.6993517149545413,
+          "snippet": "Trolltunga (The Troll’s Tongue): One of the most spectacular scenic cliffs in Norway, it hovers 700 meters above Lake Ringedalsvatnet. The hike is challenging (usually 10–12 hours), but the reward is a photograph on the thin \"tongue\" of rock jutting out into the air."
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 6,
+          "backend": "vector_similarity",
+          "score": 0.6992871881294711,
+          "snippet": "Natural Wonders: Fjords and the Midnight Sun"
+        },
+        {
+          "source": "norway_sites_to_visit.docx",
+          "chunk_id": 11,
+          "backend": "vector_similarity",
+          "score": 0.6928607841824999,
+          "snippet": "The Atlantic Ocean Road: Often cited as one of the world's most beautiful drives, this 8.3-kilometer stretch of road hops across islands and reefs with eight bridges, including the famous Storseisundet Bridge that seems to \"vanish\" into the sky."
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.25,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.25,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.5,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.681,
+      "agent_input_tokens": 2859,
+      "agent_output_tokens": 91,
+      "agent_total_tokens": 2950,
+      "judge_input_tokens": 9872,
+      "judge_output_tokens": 1684,
+      "judge_total_tokens": 11556,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because some details about the blue-lit caverns, while interesting, do not directly answer the question regarding the tunnel's length and its specific alertness feature.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions found; the actual output aligns perfectly with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the first node effectively answers the question about the Lærdal Tunnel, providing both the length and relevant design features. The subsequent nodes rank lower as they contain irrelevant information, with the second node explicitly stating it lacks any pertinent details about the tunnel, and the third node discussing unrelated topics.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the information in the expected output perfectly aligns with the statements in the nodes in retrieval context, confirming both the length of the Lærdal Tunnel and the installation of blue-lit caverns to enhance driver safety.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.4,
+          "reason": "The score is 0.40 because although the retrieval context provides accurate details about the Lærdal Tunnel's length ('The Lærdal Tunnel stretches for 24.5 kilometers.') and a design feature for alertness ('engineers installed blue-lit caverns every six kilometers'), it is overshadowed by irrelevant information regarding Trolltunga that detracts from the main question.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output is fully aligned with the provided contexts, containing no contradictions.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The response accurately states the length of the Lærdal Tunnel and correctly identifies the blue-lit caverns as a design feature intended to help drivers stay alert. However, it fails to mention that the tunnel is the world's longest road tunnel, which is a crucial detail in the Expected Output. Additionally, the Actual Output could have been more explicit in saying it prevents tunnel vision, which is part of the Expected Output's key points.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Preikestolen vs. Trolltunga",
+      "question": "How high is Preikestolen above the fjord, and which fjord does it overlook?",
+      "category": "Factual",
+      "notes": "Disambiguation test: the sites document describes Preikestolen (604 m, Lysefjord) and Trolltunga (700 m, Ringedalsvatnet) in close proximity. Disallowed keywords confirm the agent answered the correct landmark.",
+      "prompt_used": "How high is Preikestolen above the fjord, and which fjord does it overlook?\n\nEvaluation constraints:\n- Answer in one sentence and include an Evidence section.",
+      "expected_output": "Preikestolen rises 604 meters above the Lysefjord.",
+      "answer": "Preikestolen, also known as Pulpit Rock, rises 604 meters above the Lysefjord.\n\n**Evidence:**\n- Source: documents\\norway_sites_to_visit.docx, Chunk ID: 6",
+      "latency_seconds": 6.56,
+      "retrieval_latency_seconds": 0.17,
+      "llm_latency_seconds": 6.39,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_sites_to_visit.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_sites_to_visit.docx",
+          "chunk_id": 6,
+          "backend": "vector_similarity",
+          "score": 0.8355355792651535,
+          "snippet": "Preikestolen (The Pulpit Rock): A massive cliff that rises 604 meters above the Lysefjord. The top of the cliff is almost perfectly flat, creating a natural viewing platform that attracts hundreds of thousands of hikers every year."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.7748560871144433,
+          "snippet": "The country is world-famous for its fjords—deep, glacial sea inlets flanked by steep cliffs—and its mountainous terrain, which covers about two-thirds of the mainland. The highest point is Galdhøpiggen, standing at 2,469 meters. Norway also manages some 50,000 offshore islands and the Arctic"
+        },
+        {
+          "source": "norway_sites_to_visit.docx",
+          "chunk_id": 7,
+          "backend": "vector_similarity",
+          "score": 0.7695214762047224,
+          "snippet": "Trolltunga (The Troll’s Tongue): One of the most spectacular scenic cliffs in Norway, it hovers 700 meters above Lake Ringedalsvatnet. The hike is challenging (usually 10–12 hours), but the reward is a photograph on the thin \"tongue\" of rock jutting out into the air."
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 6,
+          "backend": "vector_similarity",
+          "score": 0.7580781642921053,
+          "snippet": "Natural Wonders: Fjords and the Midnight Sun"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.5,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.92,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.25,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.692,
+      "agent_input_tokens": 2880,
+      "agent_output_tokens": 77,
+      "agent_total_tokens": 2957,
+      "judge_input_tokens": 9745,
+      "judge_output_tokens": 1632,
+      "judge_total_tokens": 11377,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly and accurately answered the question regarding the height of Preikestolen and the fjord it overlooks, with no irrelevant statements present.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions in the actual output; it perfectly aligns with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes are ranked highest, effectively addressing the input about Preikestolen's height and the fjord it overlooks, while the second node, ranked 2nd, is considered less relevant as it provides unrelated information about Trolltunga, and the third node, ranked 3rd, offers only general details about fjords without directly relating to the query.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the sentence accurately reflects the details from node 1 in retrieval context, confirming that Preikestolen indeed rises 604 meters above the Lysefjord.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.1429,
+          "reason": "The score is 0.14 because while the relevant statement notes that \"Preikestolen (The Pulpit Rock): A massive cliff that rises 604 meters above the Lysefjord,\" the retrieval context primarily discusses unrelated locations and details, thereby failing to provide sufficient information to fully answer the inquiry about Preikestolen.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output is fully aligned with the factual context regarding the elevation of Preikestolen, with no contradictions present.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output correctly identifies the height of Preikestolen above the Lysefjord and directly addresses the user's request, aligning well with the expected output. However, the inclusion of the 'also known as' phrase adds unnecessary information that slightly deviates from the concise nature of the expected response, impacting clarity. The evidence section is present but not required in the expected output, which also detracts from direct alignment with the evaluation constraints.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Cheese slicer invention",
+      "question": "Who invented the cheese slicer, and in what year?",
+      "category": "Factual",
+      "notes": "Multi-source test: both fun_facts.docx and facts.docx mention the cheese slicer and the 1925 date. Tests whether precision of attribution holds across redundant sources.",
+      "prompt_used": "Who invented the cheese slicer, and in what year?\n\nEvaluation constraints:\n- Answer in one sentence and include an Evidence section.",
+      "expected_output": "The cheese slicer (ostehøvel) was invented by Thor Bjørklund in 1925.",
+      "answer": "The cheese slicer was invented by Thor Bjørklund in 1925.\n\n**Evidence:**\n- Source: documents\\norway_fun_facts.docx, Chunk ID: 2\n- Source: documents\\norway_facts.docx, Chunk ID: 14",
+      "latency_seconds": 2.26,
+      "retrieval_latency_seconds": 0.17,
+      "llm_latency_seconds": 2.09,
+      "retrieval_config": {
+        "k": 4,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_fun_facts.docx",
+        "norway_facts.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 2,
+          "backend": "vector_similarity",
+          "score": 0.8401754204505967,
+          "snippet": "The Invention of the Cheese Slicer: Perhaps the most famous Norwegian export found in kitchens worldwide is the ostevel. Invented by Thor Bjørklund in 1925, he modeled the design after a carpenter’s plane to solve the problem of cutting thin, even slices of hard cheese."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 14,
+          "backend": "vector_similarity",
+          "score": 0.7445438629311658,
+          "snippet": "Global Contributions: Norway introduced salmon sushi to Japan in the 1980s and gave the world the modern cheese slicer, invented by Thor Bjørklund in 1925.\n\nEconomy and Sustainability"
+        },
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 4,
+          "backend": "vector_similarity",
+          "score": 0.6921982989441813,
+          "snippet": "The Modern Paperclip: Although there were several designs for paper fasteners, the Norwegian Johan Vaaler is often credited in national lore with the invention of the paperclip in 1899. During World War II, wearing a paperclip on one’s lapel became a silent symbol of resistance against the Nazi"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 15,
+          "backend": "vector_similarity",
+          "score": 0.6895021439715152,
+          "snippet": "Surprising Modern Traditions: The Frozen Pizza Phenomenon"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.75,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.5,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 4
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.767,
+      "agent_input_tokens": 2791,
+      "agent_output_tokens": 83,
+      "agent_total_tokens": 2874,
+      "judge_input_tokens": 9274,
+      "judge_output_tokens": 1340,
+      "judge_total_tokens": 10614,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly addressed the question about the invention of the cheese slicer without any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions, indicating that the actual output is completely aligned with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes contain specific information directly answering the question about the cheese slicer's inventor and year, while the irrelevant node, ranked lower as the third node, contains unrelated content that does not pertain to the inquiry about the cheese slicer.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the sentence directly aligns with the information provided in multiple nodes in retrieval context, confirming the inventor and the year of invention with complete clarity.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because while the retrieval context mainly includes irrelevant information about 'Frozen Pizza', it also contains pertinent statements such as 'Invented by Thor Bjørklund in 1925' which directly answer the input request.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the actual output fully agrees with the provided context without any contradictions.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output correctly identifies Thor Bjørklund as the inventor of the cheese slicer in 1925, which aligns with the user's request and includes the essential factual details. However, it omits the specific term 'ostehøvel' mentioned in the expected output, which is a key component. There are no unsupported claims, but the absence of the term affects completeness, justifying a mid-range score.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "EV and renewable energy",
+      "question": "What makes Norway a global leader in both electric vehicles and renewable energy?",
+      "category": "Multi",
+      "notes": "Tests multi-point statistical recall from the economy and sustainability section. Both data points (EV rate and renewable electricity share) must appear for a full score.",
+      "prompt_used": "What makes Norway a global leader in both electric vehicles and renewable energy?\n\nEvaluation constraints:\n- Answer in 2–3 sentences with specific statistics and include an Evidence section.",
+      "expected_output": "Norway has the highest rate of electric vehicle ownership per capita in the world, with EVs often accounting for over 80–90% of new car sales. Domestically, nearly 98–99% of Norway's electricity is generated from renewable sources, primarily hydropower.",
+      "answer": "Norway is a global leader in electric vehicles (EVs), with EVs comprising over 80-90% of new car sales, the highest rate of ownership per capita worldwide. Additionally, the country excels in renewable energy, generating approximately 98% of its electricity from hydropower, showcasing its commitment to sustainable energy practices.\n\n**Evidence:**\n1. Source: documents\\norway_facts.docx, Chunk ID: 18\n2. Source: documents\\norway_culture_modern_life.docx, Chunk ID: 22",
+      "latency_seconds": 2.86,
+      "retrieval_latency_seconds": 0.19,
+      "llm_latency_seconds": 2.67,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_facts.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 17,
+          "backend": "vector_similarity",
+          "score": 0.8664299462567757,
+          "snippet": "Despite its status as a major petroleum exporter, Norway is a global leader in sustainability:\n\nRenewable Energy: Domestically, nearly 98-99% of Norway's electricity is generated from renewable sources, primarily hydropower."
+        },
+        {
+          "source": "norway_fun_facts.docx",
+          "chunk_id": 1,
+          "backend": "vector_similarity",
+          "score": 0.8233640751773895,
+          "snippet": "I. Global Innovations and \"Firsts\"\n\nNorway has a long history of punching above its weight when it comes to innovation and global influence. While many associate the country with raw nature, its intellectual and social contributions are equally significant."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 18,
+          "backend": "vector_similarity",
+          "score": 0.8201269443306618,
+          "snippet": "Electric Vehicles (EVs): Norway has the highest rate of electric vehicle ownership per capita in the world, with EVs often accounting for over 80-90% of new car sales."
+        },
+        {
+          "source": "norway_facts.txt",
+          "chunk_id": 3,
+          "backend": "vector_similarity",
+          "score": 0.8180533615307743,
+          "snippet": "Fishing, shipping, and energy production are key industries. \nNorway is also one of the world's largest exporters of oil and gas. \nDespite its wealth, it is committed to sustainability and renewable energy development."
+        },
+        {
+          "source": "norway_famous_norwegians.docx",
+          "chunk_id": 10,
+          "backend": "vector_similarity",
+          "score": 0.789705728397135,
+          "snippet": "III. Modern Icons and Global Leaders\n\nIn recent years, Norwegians have continued to dominate the global stage in diplomacy, entertainment, and sports. \n\n\n\n\n\n\n\nGro Harlem Brundtland"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.4,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.92,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.6,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 0.906,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.629,
+      "agent_input_tokens": 2834,
+      "agent_output_tokens": 145,
+      "agent_total_tokens": 2979,
+      "judge_input_tokens": 9989,
+      "judge_output_tokens": 4441,
+      "judge_total_tokens": 14430,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the output effectively answers the question about Norway's leadership in electric vehicles and renewable energy without including any irrelevant statements.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions found, indicating that the actual output aligns perfectly with the retrieval context. This is a great outcome!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the first node effectively highlights Norway's leading position in electric vehicle ownership, stating that 'Norway has the highest rate of electric vehicle ownership per capita in the world, with EVs often accounting for over 80-90% of new car sales.' This comprehensive and highly relevant information significantly outweighs the lower-ranked irrelevant nodes, which do not pertain to electric vehicles or renewable energy.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 0.5,
+          "reason": "The score is 0.50 because the sentence about Norway's high EV ownership rate (sentence 1) can be connected to node 1 in the retrieval context, while there is no corresponding information found for how Norway generates its electricity, leading to partial context alignment.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.2,
+          "reason": "The score is 0.20 because while the statement about Norway having the highest rate of electric vehicle ownership per capita is relevant, there are no specific explanations regarding its leadership in renewable energy or supportive statistics mentioned. The lack of comprehensive information limits the relevance significantly.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions between the actual output and the provided context, and the factual alignments fully support the statements made.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The actual output successfully addresses the user's request by providing key statistics about Norway's electric vehicle ownership and renewable energy generation. However, while it includes relevant data, it slightly deviates from the expected output's phrasing, notably in the range for electricity generation (98% vs. 98-99%). The evidence provided supports the claims, but the lack of perfect alignment with wording affects completeness. Overall, it covers the main points but lacks precise alignment with expectations.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Oil fund vs. sustainability",
+      "question": "How does Norway reconcile being one of the world's largest oil exporters with its commitment to sustainability and long-term prosperity?",
+      "category": "Synthesis",
+      "notes": "Cross-theme synthesis case requiring the agent to combine fiscal policy, energy, and sustainability content from at least two documents. MMR and k=6 are used to encourage retrieval diversity across those themes.",
+      "prompt_used": "How does Norway reconcile being one of the world's largest oil exporters with its commitment to sustainability and long-term prosperity?\n\nEvaluation constraints:\n- Answer in 3–4 sentences synthesizing evidence from multiple documents. Include an Evidence section.",
+      "expected_output": "Norway channels oil revenues into the Government Pension Fund Global (the sovereign wealth fund), one of the largest in the world. The fund is designed to ensure intergenerational equity — wealth from finite oil reserves is preserved for future generations. Domestically, Norway leads in renewable energy and electric vehicles, demonstrating that oil wealth and sustainability goals can coexist.",
+      "answer": "Norway reconciles its role as a major oil exporter with its commitment to sustainability by investing heavily in renewable energy and maintaining a robust environmental policy. Approximately 98-99% of the country's electricity is generated from renewable sources, primarily hydropower, which underscores its dedication to reducing carbon emissions. Additionally, Norway's leadership in sustainable development is exemplified by figures like Gro Harlem Brundtland, who has been influential in promoting sustainable practices globally. This dual approach allows Norway to leverage its oil revenues for funding green initiatives and transitioning towards a more sustainable economy.\n\n**Evidence:**\n1. Source: documents\\norway_facts.docx, Chunk ID: 17\n2. Source: documents\\norway_famous_norwegians.docx, Chunk ID: 11\n3. Source: documents\\norway_culture_modern_life.docx, Chunk ID: 0",
+      "latency_seconds": 4.08,
+      "retrieval_latency_seconds": 0.24,
+      "llm_latency_seconds": 3.84,
+      "retrieval_config": {
+        "k": 6,
+        "vector_search_method": "mmr",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_facts.docx",
+        "norway_culture_modern_life.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 17,
+          "backend": "vector_mmr",
+          "score": 1.0,
+          "snippet": "Despite its status as a major petroleum exporter, Norway is a global leader in sustainability:\n\nRenewable Energy: Domestically, nearly 98-99% of Norway's electricity is generated from renewable sources, primarily hydropower."
+        },
+        {
+          "source": "norway_history_expanded.docx",
+          "chunk_id": 24,
+          "backend": "vector_mmr",
+          "score": 0.8333333333333334,
+          "snippet": "The discovery of oil in the North Sea in the late 20th century transformed Norway’s economy. Oil revenues were carefully managed through state control and the establishment of the Government Pension Fund Global, ensuring long-term benefits for future generations. Today, Norway is considered one of"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 21,
+          "backend": "vector_mmr",
+          "score": 0.6666666666666667,
+          "snippet": "state for generations to come. This focus on \"intergenerational equity\" makes Norway a global outlier in economic planning."
+        },
+        {
+          "source": "norway_facts.docx",
+          "chunk_id": 14,
+          "backend": "vector_mmr",
+          "score": 0.5,
+          "snippet": "Global Contributions: Norway introduced salmon sushi to Japan in the 1980s and gave the world the modern cheese slicer, invented by Thor Bjørklund in 1925.\n\nEconomy and Sustainability"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 20,
+          "backend": "vector_mmr",
+          "score": 0.33333333333333337,
+          "snippet": "of the world's largest sovereign wealth funds, owning roughly 1.5% of all shares in world-listed companies. The fund is designed to ensure that when the oil eventually runs out, the wealth generated from it will continue to fund the Norwegian welfare state for generations to come. This focus on"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.667,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.905,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.5,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 0.947,
+      "backend_distribution": {
+        "vector_mmr": 6
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.5,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.667,
+      "agent_input_tokens": 2888,
+      "agent_output_tokens": 214,
+      "agent_total_tokens": 3102,
+      "judge_input_tokens": 10712,
+      "judge_output_tokens": 2100,
+      "judge_total_tokens": 12812,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response directly and effectively addresses the question of how Norway balances oil exports with sustainability commitments, without including any irrelevant information.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating a perfect alignment between the actual output and the retrieval context. Keep up the great work!",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the first node effectively addresses Norway's approach to sustainability through its renewable energy initiatives, stating that 'nearly 98-99% of Norway's electricity is generated from renewable sources, primarily hydropower.' This strong alignment with sustainability enhances its relevance. In contrast, the subsequent nodes are ranked lower as they present information that is 'off-topic' or does not directly link to the critical themes of oil exports or sustainability, which is the core of the user's query.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because while the mention of Norway's role as a major petroleum exporter and its efforts in sustainability is supported by node(s) in retrieval context, there is a gap regarding the concept of intergenerational equity and wealth preservation, which lacks direct attribution in the context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.6,
+          "reason": "The score is 0.60 because while some relevant statements like 'Norway is a global leader in sustainability' and its reliance on renewable energy highlight the country's balancing act between oil exports and sustainability, other elements, such as the mention of 'Jens Stoltenberg' and cultural aspects, do not contribute to the discussion on oil and sustainability.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions found, and all factual alignments perfectly match the context, indicating no hallucination.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.4,
+          "reason": "The actual output addresses the request by discussing Norway's investment in renewable energy and environmental policies. However, it lacks critical details such as the mention of the Government Pension Fund Global, which is essential for explaining how Norway utilizes oil revenues for sustainability. While the output mentions renewable energy generation, it does not sufficiently synthesize evidence from the multiple documents as required, leading to an incomplete response.",
+          "passed": false,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Immigration demographics",
+      "question": "What share of Norway's population consists of immigrants or their children, and which countries do the largest groups originate from?",
+      "category": "Factual",
+      "notes": "Tests multi-point demographic recall. Both the percentage and country names must appear for a complete answer. The detail is only in the .docx variant, not the .pdf.",
+      "prompt_used": "What share of Norway's population consists of immigrants or their children, and which countries do the largest groups originate from?\n\nEvaluation constraints:\n- Answer in 2–3 sentences with specific percentages and country names. Include an Evidence section.",
+      "expected_output": "Immigrants and Norwegian-born children of immigrant parents make up approximately 19–20% of the total population. Significant groups come from Poland and Lithuania (labor migration) and from Somalia, Syria, and Ukraine (refugee resettlement).",
+      "answer": "Approximately 19-20% of Norway's population consists of immigrants and their children. The largest groups of immigrants originate from countries such as Somalia, Syria, and Ukraine, reflecting Norway's tradition of accepting refugees from conflict zones.\n\n**Evidence:**\n- Source: documents\\norway_population.docx, Chunk ID: 9\n- Source: documents\\norway_population.docx, Chunk ID: 11",
+      "latency_seconds": 4.04,
+      "retrieval_latency_seconds": 0.18,
+      "llm_latency_seconds": 3.86,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_population.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 9,
+          "backend": "vector_similarity",
+          "score": 0.8281680045807975,
+          "snippet": "III. The Impact of Immigration and Diversity\n\nIn recent decades, Norway has transitioned from a largely homogenous society to an increasingly multicultural one. Today, immigrants and Norwegian-born children of immigrant parents make up approximately 19-20% of the total population."
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 18,
+          "backend": "vector_similarity",
+          "score": 0.8102353740130945,
+          "snippet": "Sources\n\nStatistikk sentralbyrå (SSB) - Population and Housing Census\n\nWorld Bank - Life Expectancy at Birth: Norway\n\nOECD iLibrary - Education at a Glance: Norway Country Note\n\nRegjeringen.no - Immigrants and Norwegian-born to immigrant parents"
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 21,
+          "backend": "vector_similarity",
+          "score": 0.7987236788387685,
+          "snippet": "The last 100 years have seen Norway’s population more than double, growing from approximately 2.7 million in 1924 to over 5.5 million today. This growth was not a single steady climb but rather a series of distinct phases shaped by global events and economic shifts. \n\nWikipedia +4"
+        },
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.7899926641417973,
+          "snippet": "Norway’s population is relatively small compared to its large geographic area, with about 5.5 million\nresidents.\nMost people live in urban areas, particularly around Oslo, Bergen, and Trondheim, while large parts\nof the country remain sparsely populated."
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.7898038251870442,
+          "snippet": "Analysis of the Norwegian Population and Social Structure\n\nI. Population Distribution and Urbanization"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.8,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.983,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.2,
+      "chunk_recall_at_k": 0.333,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.565,
+      "agent_input_tokens": 6122,
+      "agent_output_tokens": 135,
+      "agent_total_tokens": 6257,
+      "judge_input_tokens": 13076,
+      "judge_output_tokens": 2281,
+      "judge_total_tokens": 15357,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because while there is some context about Norway's immigration approach, it fails to specifically answer the question regarding the percentage of the population that consists of immigrants or their children and does not identify the largest originating countries. This lack of direct relevance to the specific query prevents a higher score.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions, indicating that the actual output aligns perfectly with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 0.6333,
+          "reason": "The score is 0.63 because the relevant nodes are not consistently ranked higher than the irrelevant nodes. For instance, the first node provides crucial information about the percentage of immigrants, while the second node is ranked lower despite being irrelevant, stated that it 'does not provide any specific information about the immigrant population or their origins.' Additionally, nodes three and four, which also do not address the question directly, are ranked before another relevant node, causing confusion in the context ranking.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the sentence directly aligns with the information from the 1st node regarding the population percentage, and also corresponds to the 6th node discussing refugee contributions, demonstrating a clear connection to the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.1538,
+          "reason": "The score is 0.15 because, while the statement notes that 'immigrants and Norwegian-born children of immigrant parents make up approximately 19-20% of the total population,' it lacks vital details about the countries of origin and specific percentages, rendering it insufficient to fully address the input question.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions present, and the actual output fully aligns with the factual context provided.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.5,
+          "reason": "The actual output provides a general estimate of the immigrant population in Norway and mentions some of the countries of origin. However, it fails to specifically identify Poland and Lithuania as significant groups, which are required in the expected output. While it accurately states the percentage, it does not fully align with all expected facts, including specific mentions of labor migration countries.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "REVIEW",
+      "errors": []
+    },
+    {
+      "id": "Troll culture and geography",
+      "question": "What role do trolls play in Norwegian culture, and which geographic landmarks are named after them?",
+      "category": "Concept",
+      "notes": "Prefix matching test: the root 'troll' should prefix-match 'Trolltunga', 'Trollstigen', and 'trolls' across documents. Tests whether use_prefix=true surfaces the relevant chunks from both the culture and sites documents.",
+      "prompt_used": "What role do trolls play in Norwegian culture, and which geographic landmarks are named after them?\n\nEvaluation constraints:\n- Answer in 2–3 sentences covering both mythology and geography. Include an Evidence section.",
+      "expected_output": "Trolls are the most iconic figures in Norwegian mythology — described as shy, often dim-witted creatures that live in caves or forests and turn to stone in sunlight. This legend explains rock formations such as Trolltunga (The Troll's Tongue) and Trollstigen (The Troll's Path). Trolls appear in Norwegian art and music, including the classical works of Edvard Grieg.",
+      "answer": "In Norwegian culture, trolls are iconic figures in mythology, often depicted as shy, dim-witted, and sometimes dangerous creatures that inhabit caves and forests. They are central to folklore, with tales suggesting they turn to stone when exposed to sunlight. Geographically, landmarks such as Trolltunga (Troll's Tongue), a dramatic cliff overlooking Lake Ringedalsvatnet, are named after these mythical beings, reflecting their deep-rooted presence in both culture and landscape.\n\n**Evidence:**\n1. Source: documents\\norway_culture_modern_life.docx, Chunk ID: 12\n2. Source: documents\\norway_sites_to_visit.docx, Chunk ID: 7",
+      "latency_seconds": 3.23,
+      "retrieval_latency_seconds": 0.17,
+      "llm_latency_seconds": 3.06,
+      "retrieval_config": {
+        "k": 5,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": true,
+        "multi_fts": true
+      },
+      "metadata_filters": {},
+      "expected_sources": [
+        "norway_culture_modern_life.docx",
+        "norway_sites_to_visit.docx"
+      ],
+      "retrieval_preview": [
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 12,
+          "backend": "vector_similarity",
+          "score": 0.8412962105196226,
+          "snippet": "Before modern science explained the fjords and mountains, Norwegians turned to folklore. Trolls are the most iconic figures in Norwegian mythology. Described as shy, often dim-witted, and occasionally dangerous creatures that live in caves or deep forests, they are said to turn to stone if exposed"
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 11,
+          "backend": "vector_similarity",
+          "score": 0.8248434611702583,
+          "snippet": "Folklore and the Legend of Trolls"
+        },
+        {
+          "source": "norway_fun_facts.pdf",
+          "chunk_id": 2,
+          "backend": "vector_similarity",
+          "score": 0.7991710887091359,
+          "snippet": "revenues.\nAnother fun fact is that Norwegians consume a lot of frozen pizza, making it surprisingly popular.\nThe country is also known for its trolls in folklore, which are mythical creatures featured in many\ntraditional stories."
+        },
+        {
+          "source": "norway_sites_to_visit.docx",
+          "chunk_id": 7,
+          "backend": "vector_similarity",
+          "score": 0.7830865236916507,
+          "snippet": "Trolltunga (The Troll’s Tongue): One of the most spectacular scenic cliffs in Norway, it hovers 700 meters above Lake Ringedalsvatnet. The hike is challenging (usually 10–12 hours), but the reward is a photograph on the thin \"tongue\" of rock jutting out into the air."
+        },
+        {
+          "source": "norway_culture_modern_life.docx",
+          "chunk_id": 22,
+          "backend": "vector_similarity",
+          "score": 0.7829902602896518,
+          "snippet": "Sources\n\nVisit Norway - The Norwegian Right to Roam\n\nForbes - Friluftsliv: The Nordic Secret to Resilience\n\nUNESCO World Heritage Centre - West Norwegian Fjords\n\nThe Guardian - Why Norway’s Trolls are making a comeback\n\nNorges Bank Investment Management - About the Fund"
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 0.8,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 0.956,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 0.4,
+      "chunk_recall_at_k": 0.667,
+      "chunk_ndcg_at_k": 0.877,
+      "backend_distribution": {
+        "vector_similarity": 5
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 0.5,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.693,
+      "agent_input_tokens": 2906,
+      "agent_output_tokens": 175,
+      "agent_total_tokens": 3081,
+      "judge_input_tokens": 10668,
+      "judge_output_tokens": 2111,
+      "judge_total_tokens": 12779,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the response effectively addressed both aspects of the question regarding the role of trolls in Norwegian culture and the geographic landmarks named after them, with no irrelevant statements present.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions present, indicating that the actual output perfectly aligns with the retrieval context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because all relevant nodes provide direct answers to the inquiry about trolls in Norwegian culture and relevant geographic landmarks. The first node highlights that trolls are 'the most iconic figures in Norwegian mythology,' while the second node directly addresses Trolltunga, thus both nodes ranked higher significantly contribute to the understanding of the topic, whereas the third node is irrelevant and is ranked lower due to 'not providing relevant information regarding trolls or geographic landmarks associated with them.'",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 0.6667,
+          "reason": "The score is 0.67 because while the first sentence regarding trolls being iconic figures and their connection to rock formations is well supported by node(s) in retrieval context, the mention of their appearance in Norwegian art and music lacks direct attribution in the retrieval context, indicating some gaps in the overall link.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.25,
+          "reason": "The score is 0.25 because while the retrieval context mentions that 'trolls are the most iconic figures in Norwegian mythology,' it fails to elaborate on their cultural significance or specific landmarks named after them, with irrelevant details dominating the context.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.3333,
+          "reason": "The score is 0.33 because the actual output correctly aligns with the context regarding the characteristics and habitat of trolls, as well as referencing Trolltunga. However, it fails to acknowledge the significant presence of trolls in Norwegian art and music, which leads to a partial hallucination due to incomplete representation of the context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.6,
+          "reason": "The actual output directly addresses the user's request by discussing the role of trolls in Norwegian culture and mentioning the landmark Trolltunga. However, it lacks mention of other landmarks like Trollstigen and does not reference their presence in art and music, which were crucial components of the expected output. The response also includes relevant evidence from the cited sources, supporting the claims made, yet it omits some cultural aspects mentioned in the expected output, leading to a lower score.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "PASS",
+      "errors": []
+    },
+    {
+      "id": "Adversarial out of scope",
+      "question": "What is the population of Sweden?",
+      "category": "Adversarial",
+      "notes": "Out-of-scope hallucination test. The documents contain no data about Sweden's population. Disallowed keywords catch plausible hallucinated figures for Sweden. multi_fts=false since there is no valid FTS match to find. A passing answer states that the information is not in the documents.",
+      "prompt_used": "What is the population of Sweden?\n\nEvaluation constraints:\n- If the documents do not contain the answer, say so explicitly rather than guessing.",
+      "expected_output": "The documents in this collection do not contain information about Sweden's population. The agent should decline to answer or redirect to Norway-specific content that is available.",
+      "answer": "The search did not return any specific information regarding the population of Sweden. The retrieved documents primarily focused on Norway's population and did not contain relevant data about Sweden.\n\nIf you have a more specific question or a different query, please let me know!",
+      "latency_seconds": 2.17,
+      "retrieval_latency_seconds": 0.16,
+      "llm_latency_seconds": 2.01,
+      "retrieval_config": {
+        "k": 3,
+        "vector_search_method": "similarity",
+        "use_phrase": false,
+        "use_prefix": false,
+        "multi_fts": false
+      },
+      "metadata_filters": {},
+      "expected_sources": [],
+      "retrieval_preview": [
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 28,
+          "backend": "vector_similarity",
+          "score": 0.78918112657372,
+          "snippet": "Statistisk sentralbyrå +6\n\nDemographic Growth Comparison\n\nYear \n\nEstimated Population\n\nGrowth Driver\n\n1924\n\n~2.7 Million\n\nNatural Increase / Emigration to USA\n\n1960\n\n3.58 Million\n\nPost-War Baby Boom\n\n1980\n\n4.09 Million\n\nEarly Oil Industry Expansion\n\n2012\n\n5.0 Million"
+        },
+        {
+          "source": "norway_population.docx",
+          "chunk_id": 21,
+          "backend": "vector_similarity",
+          "score": 0.7676237722036708,
+          "snippet": "The last 100 years have seen Norway’s population more than double, growing from approximately 2.7 million in 1924 to over 5.5 million today. This growth was not a single steady climb but rather a series of distinct phases shaped by global events and economic shifts. \n\nWikipedia +4"
+        },
+        {
+          "source": "norway_population.pdf",
+          "chunk_id": 0,
+          "backend": "vector_similarity",
+          "score": 0.7573258641196101,
+          "snippet": "Norway’s population is relatively small compared to its large geographic area, with about 5.5 million\nresidents.\nMost people live in urban areas, particularly around Oslo, Bergen, and Trondheim, while large parts\nof the country remain sparsely populated."
+        }
+      ],
+      "hit_at_k": 1.0,
+      "metadata_match_ratio": 1.0,
+      "mrr": 1.0,
+      "precision_at_k": 1.0,
+      "recall_at_k": 1.0,
+      "ndcg_at_k": 1.0,
+      "chunk_hit_at_k": 1.0,
+      "chunk_mrr": 1.0,
+      "chunk_precision_at_k": 1.0,
+      "chunk_recall_at_k": 1.0,
+      "chunk_ndcg_at_k": 1.0,
+      "backend_distribution": {
+        "vector_similarity": 3
+      },
+      "keyword_checks": {
+        "required_keyword_hit_rate": 1.0,
+        "disallowed_keyword_hits": 0
+      },
+      "avg_judge_score": 0.386,
+      "agent_input_tokens": 2861,
+      "agent_output_tokens": 72,
+      "agent_total_tokens": 2933,
+      "judge_input_tokens": 9815,
+      "judge_output_tokens": 1739,
+      "judge_total_tokens": 11554,
+      "metrics": {
+        "answer_relevancy": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because the output failed to provide any relevant information about the population of Sweden, as it instead referenced the population of Norway and indicated a lack of data relevant to Sweden.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "faithfulness": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because there are no contradictions between the actual output and the retrieval context, indicating perfect alignment.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_precision": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because all relevant nodes contain no information about Sweden's population. The first node discusses the population of Norway instead, stating, \"The document discusses the population of Norway but does not contain any information about Sweden's population.\" Similarly, the second node mentions demographic growth in Norway without relevant data for Sweden, and the third node only covers Norway's population, making it clear that none of the nodes answer the question.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "contextual_recall": {
+          "score": 1.0,
+          "reason": "The score is 1.00 because the content perfectly aligns with node(s) in retrieval context, emphasizing the lack of information about Sweden's population and the recommendation to redirect to Norway-specific content.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "contextual_relevancy": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no relevant statements regarding the population of Sweden in the retrieval context, as all statements pertain exclusively to Norway's population.",
+          "passed": false,
+          "threshold": 0.5
+        },
+        "hallucination": {
+          "score": 0.0,
+          "reason": "The score is 0.00 because there are no contradictions present, and all factual alignments confirm the accuracy of the information regarding Sweden and Norway's populations as stated in the context.",
+          "passed": true,
+          "threshold": 0.5
+        },
+        "correctness_g_eval": {
+          "score": 0.7,
+          "reason": "The response accurately reflects that the documents did not contain information about Sweden's population, adhering to the evaluation constraint. However, it could have been more straightforward by directly stating the lack of information without introducing the option for a more specific question, which is not relevant to the original request. This leads to a lower score as it somewhat deviates from the expected output's recommendation to decline or redirect without promoting further queries.",
+          "passed": true,
+          "threshold": 0.5
+        }
+      },
+      "status": "REVIEW",
+      "errors": []
+    }
+  ]
+}

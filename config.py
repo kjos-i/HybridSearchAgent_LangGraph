@@ -7,6 +7,15 @@ graph visualization.
 """
 
 # ---------------------------------------------------------------------------
+# Agent model
+# ---------------------------------------------------------------------------
+
+# OpenAI chat model used by the LangGraph agent.  The model affects how the
+# agent constructs search queries and synthesises grounded answers, so it is
+# treated as a tunable alongside the retrieval weights.
+MODEL_NAME = "gpt-4o-mini"
+
+# ---------------------------------------------------------------------------
 # Search strategy hyperparameters
 # ---------------------------------------------------------------------------
 
@@ -16,7 +25,7 @@ VECTOR_SIMILARITY_WEIGHT = 0.5
 VECTOR_MMR_WEIGHT = 0.5
 
 # Ceiling used to normalize raw SQLite BM25 scores into 0-1 range.
-FTS_MAX_SCORE = 20.0
+FTS_MAX_SCORE = 5e-6
 
 # Per-mode weights for multi-mode FTS (keyword always runs; phrase and prefix
 # are additive).  Values > 1.0 boost that mode; < 1.0 dampen it.

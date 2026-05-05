@@ -28,11 +28,12 @@ class ChunkMetadata(BaseModel):
         chunk_hash_id: MD5 hash of the specific chunk (doc_id + chunk_id).
 
     Note:
-        Changes to these fields require manual synchronization with FTSStore:
-            1. Update the SQLite virtual table schema (FTS5).
-            2. Update `add_documents` INSERT statements and values.
-            3. Update the `search` SELECT statement and result mapping.
-            4. Update allowed keys in the search filtering logic.
+        When adding or renaming a field, update _FTS_COLUMNS in
+        fts_search.py so the field name matches.  The FTS5 CREATE
+        schema, the add_documents INSERT, the search SELECT and
+        row-to-SearchResult mapping, and the allowed filter keys
+        are all derived from that single tuple, so no further manual
+        synchronization with FTSStore is required.
     """
 
     source: str = Field(..., description="Source identifier")
