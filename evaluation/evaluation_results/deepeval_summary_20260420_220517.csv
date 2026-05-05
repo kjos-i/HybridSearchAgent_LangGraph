@@ -1,4 +1,0 @@
-id,category,status,answer_relevancy,faithfulness,contextual_precision,contextual_recall,contextual_relevancy,hallucination,correctness_g_eval,hit_at_k,mrr,precision_at_k,recall_at_k,ndcg_at_k,metadata_match_ratio,backend_fts,backend_vector,backend_hybrid,chunk_hit_at_k,chunk_mrr,chunk_precision_at_k,chunk_recall_at_k,chunk_ndcg_at_k,required_keyword_hit_rate,disallowed_keyword_hits,avg_judge_score,latency_seconds,retrieval_latency_seconds,llm_latency_seconds,error_count
-Population and capital,Factual,PASS,1.0,1.0,1.0,1.0,0.8333,0.0,1.0,1.0,1.0,1.0,1.0,1.0,1.0,0,0,0,1.0,1.0,1.0,1.0,1.0,1.0,0,83.3,3.25,1.14,2.11,0
-Written language forms,Factual,PASS,1.0,1.0,0.5,1.0,0.6,0.5,0.8,1.0,0.5,0.5,0.5,0.651,1.0,0,0,0,1.0,0.5,0.5,1.0,0.651,1.0,0,77.1,7.17,0.76,6.41,0
-Friluftsliv and allemannsretten,Concept,PASS,1.0,1.0,0.8333,0.3333,0.75,0.3333,0.7,1.0,1.0,0.8,1.0,0.956,1.0,0,0,0,1.0,1.0,1.0,1.0,1.0,1.0,0,70.7,3.94,0.19,3.75,0
