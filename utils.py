@@ -130,9 +130,9 @@ def setup_logger_dual(name=__name__, log_file=_DEFAULT_LOG_PATH):
     existing logger (no duplicate handlers).
 
     Args:
-        name (str): Logger name.  Conventionally the calling module's
+        name (str): Logger name. Conventionally the calling module's
             __name__.
-        log_file (str): Path to the log file.  Defaults to agent.log
+        log_file (str): Path to the log file. Defaults to agent.log
             next to utils.py.
 
     Returns:

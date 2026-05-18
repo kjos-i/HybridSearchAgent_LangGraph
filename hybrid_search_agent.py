@@ -81,11 +81,12 @@ def hybrid_search_tool(**kwargs):
     ranked list.
 
     Inputs are validated against HybridSearchArgs before this body
-    runs.  The implementation:
+    runs. The implementation:
 
         1. Resolves search-mode flags (use_phrase wins over
            use_prefix when both are set).
-        2. Strips None-valued kwargs into a metadata-filter dict.
+        2. Collects the remaining kwargs into a metadata-filter dict,
+           excluding None values.
         3. Delegates to HybridRetriever.search for score fusion,
            deduplication, and ranking.
 

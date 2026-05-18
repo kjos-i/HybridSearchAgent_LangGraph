@@ -25,7 +25,6 @@ class HybridRetriever:
         fts_weight (float): Weight of FTS scores in hybrid scoring.
         vector_similarity_weight (float): Weight for vector similarity scores.
         vector_mmr_weight (float): Weight for vector MMR scores.
-        fts_max_score (float): Maximum expected FTS score (for normalization).
     """
 
     def __init__(
@@ -60,16 +59,17 @@ class HybridRetriever:
 
     def _hybrid_score(self, doc: SearchResult) -> float:
         """
-        Map a single backend-specific raw score onto a weighted [0, 1] scale.
+        Apply the per-backend weight to an already-normalized score.
 
-        Each retrieval backend produces scores on a different scale:
-            - fts               — negative BM25 (smaller = better),
-                                       normalised by fts_max_score.
+        All three backends deliver scores on a roughly [0, 1] scale where
+        larger = better:
+            - fts               — normalized in FTSStore.search_single
+                                       (sign flipped and divided by fts_max_score).
             - vector_similarity — Chroma cosine relevance in [0, 1].
             - vector_mmr        — synthetic rank-based score in [0, 1].
 
-        Each is capped, normalised to [0, 1], and multiplied by the
-        corresponding backend weight.  Unknown backends are logged and
+        This method clamps any stray negatives to 0 and multiplies by the
+        corresponding backend weight. Unknown backends are logged and
         scored 0.0 so label drift is visible rather than silent.
 
         Args:

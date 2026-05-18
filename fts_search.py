@@ -22,7 +22,7 @@ from pydantic_models import SearchResult
 # FTS5 schema
 # ---------------------------------------------------------------------------
 
-# Columns of the FTS5 virtual table, in declaration order.  This single tuple
+# Columns of the FTS5 virtual table, in declaration order. This single tuple
 # drives the CREATE/INSERT/SELECT SQL and the row-to-SearchResult mapping, so
 # adding or removing a column is a one-place edit here (plus matching changes
 # to ChunkMetadata / SearchResult in pydantic_models.py).
@@ -45,12 +45,14 @@ _FTS_COLUMNS = (
     "metadata",
 )
 
-# Columns accepted as metadata-filter keys in search queries.  Excludes
+# Columns accepted as metadata-filter keys in search queries. Excludes
 # page_content (the FTS search target) and metadata (a JSON blob).
 _FILTERABLE_COLUMNS = frozenset(_FTS_COLUMNS) - {"page_content", "metadata"}
 
 _FTS_COLUMNS_CSV = ", ".join(_FTS_COLUMNS)
 _FTS_PLACEHOLDERS = ", ".join(["?"] * len(_FTS_COLUMNS))
+
+_SEARCHABLE_COLUMNS = " ".join(col for col in _FTS_COLUMNS if col != "metadata")
 
 
 class FTSStore:
@@ -72,7 +74,7 @@ class FTSStore:
             db_path (str): Path to the SQLite database file. Defaults to "fts.db".
         """
 
-        self.conn = sqlite3.connect(db_path, check_same_thread=False)
+        self.conn = sqlite3.connect(db_path, check_same_thread=True)
         self.cur = self.conn.cursor()
         self.fts_max_score = fts_max_score
         self._init()
@@ -108,7 +110,7 @@ class FTSStore:
         for i, chunk in enumerate(chunks):
             meta = chunk.metadata
             # Build a value-by-column dict, then materialize the tuple in
-            # _FTS_COLUMNS order.  page_content and metadata are sourced
+            # _FTS_COLUMNS order. page_content and metadata are sourced
             # explicitly (they are not flat metadata fields), and chunk_id
             # falls back to the enumerate index when the chunk lacks one.
             values = dict(meta)
@@ -156,6 +158,9 @@ class FTSStore:
         elif use_prefix:
             fts_query = f'{sanitized}*'
         
+        # This explicitly shields the keyword search from scanning your 'metadata' JSON column.
+        fts_query = f"{{{_SEARCHABLE_COLUMNS}}} : {fts_query}"
+
         # Base SQL query: every column in _FTS_COLUMNS plus the BM25 score.
         sql = f"""
             SELECT {_FTS_COLUMNS_CSV}, bm25(docs) as score
@@ -249,7 +254,7 @@ class FTSStore:
             deduplicated and its weighted contributions are summed.
             """
             for result in results:
-                result_key = (result.page_content, result.chunk_id)
+                result_key = (result.page_content, result.chunk_hash_id)
                 match_score = result.score * weight
 
                 if result_key not in unique_dict_fts:

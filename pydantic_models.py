@@ -29,7 +29,7 @@ class ChunkMetadata(BaseModel):
 
     Note:
         When adding or renaming a field, update _FTS_COLUMNS in
-        fts_search.py so the field name matches.  The FTS5 CREATE
+        fts_search.py so the field name matches. The FTS5 CREATE
         schema, the add_documents INSERT, the search SELECT and
         row-to-SearchResult mapping, and the allowed filter keys
         are all derived from that single tuple, so no further manual
